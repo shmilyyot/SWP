@@ -154,8 +154,9 @@ Frame * convert_char_to_frame(char * char_buf)
 uint16_t crc16(char* array,int array_len){
     uint16_t wCRCin = 0x0000;  
     uint16_t wCPoly = 0x1021;  
-    uint16_t wChar = 0;  
-    while (array_len--){  
+    uint8_t wChar = 0;
+    while (array_len--)
+    {
         wChar = *(array++);  
         wCRCin ^= (wChar << 8);
         for(int i = 0; i < 8; i++){  
@@ -163,22 +164,13 @@ uint16_t crc16(char* array,int array_len){
                 wCRCin = (wCRCin << 1) ^ wCPoly;
             else
                 wCRCin = wCRCin << 1;
-        }  
-    }  
+        }
+    }
     return wCRCin; 
 }
 
 char get_bit(uint16_t byte,int pos){
-    char res = 0;
     byte = (byte>>(15-pos))&1;
     if(byte==1) return 1;
     else return 0;
-}
-
-void append_crc(char* array,int array_len){
-
-}
-
-int is_corrupted(char* array,int array_len){
-
 }
