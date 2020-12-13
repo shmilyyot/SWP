@@ -29,8 +29,8 @@ void handle_incoming_msgs(Receiver * receiver,
 
         //每次从消息队列取一个节点出来，把发送者id取出来，发送确认报文的时候要用到
         send_id = ((char *)ll_inmsg_node->value)[2];
-        //--incoming_msgs_length; //好像可以优化成--，再次获取长度效率太低
-        incoming_msgs_length = ll_get_length(receiver->input_framelist_head);
+        --incoming_msgs_length; //好像可以优化成--，再次获取长度效率太低
+        //incoming_msgs_length = ll_get_length(receiver->input_framelist_head);
 
         //DUMMY CODE: Print the raw_char_buf
         //NOTE: You should not blindly print messages!
