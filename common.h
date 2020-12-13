@@ -107,17 +107,16 @@ typedef struct Receiver_t Receiver;
 //TODO: You should change this!
 //Remember, your frame can be AT MOST 48 bytes!
 //帧的有效负载
-#define FRAME_PAYLOAD_SIZE 43
+#define CRC 0   //crc冗余码起始位置
+#define SOURCE_ID 2     //源地址起始位置
+#define DES_ID 4    //目的地址起始位置
+#define ACK 6   //确认号起始位置
+#define SEQ 7   //顺序号起始位置
+#define FRAME_PAYLOAD_SIZE 16   //有效数据起始位置
 //帧的结构
 struct Frame_t
 {
-    uint8_t sourceID; //源id
-    uint8_t targetID; //目的id
-    uchar_t ackID;  //确认号
-    uchar_t seqID;  //顺序号
-    char data[FRAME_PAYLOAD_SIZE]; //有效数据
-    uint8_t crc; //校验冗余码
-    uchar_t messageType; //报文类型
+    char data[MAX_FRAME_SIZE]; //帧封装的内容装在数组里面
 };
 typedef struct Frame_t Frame;
 
