@@ -69,7 +69,7 @@ struct Receiver_t
     pthread_cond_t buffer_cv;
     LLnode * input_framelist_head;
     
-    int recv_id;
+    uint16_t recv_id;
 };
 
 struct Sender_t
@@ -89,7 +89,7 @@ struct Sender_t
     //输入的帧链表
     LLnode * input_framelist_head;
     //发送id
-    int send_id;
+    uint16_t send_id;
 };
 
 enum SendFrame_DstType 
@@ -110,7 +110,7 @@ typedef struct Receiver_t Receiver;
 #define CRC 0   //crc冗余码起始位置
 #define SOURCE_ID 2     //源地址起始位置
 #define DES_ID 4    //目的地址起始位置
-#define ACK 6   //确认号起始位置
+#define ACK 6   //确认号起始位置，ack有几种，1代表确认收到报文
 #define SEQ 7   //顺序号起始位置
 #define FRAME_PAYLOAD_SIZE 16   //有效数据起始位置
 //帧的结构

@@ -149,13 +149,36 @@ Frame * convert_char_to_frame(char * char_buf)
     return frame;
 }
 
-//占位符，编写crc冗余码代码
-char crc8(char* array,int array_len){
-    char crc;
-    for(int i=1;i<array_len;++i){
-        for(int j=7;j>=0;--j){
+//计算crc16冗余码，返回一个short
+//低位在后高位在前
+uint16_t crc16(char* array,int array_len){
+    uint16_t wCRCin = 0x0000;  
+    uint16_t wCPoly = 0x1021;  
+    uint16_t wChar = 0;  
+    while (array_len--){  
+        wChar = *(array++);  
+        wCRCin ^= (wChar << 8);
+        for(int i = 0; i < 8; i++){  
+            if(wCRCin & 0x8000)  
+                wCRCin = (wCRCin << 1) ^ wCPoly;
+            else
+                wCRCin = wCRCin << 1;
+        }  
+    }  
+    return wCRCin; 
+}
 
-        }
-    }
-    return crc;
+char get_bit(uint16_t byte,int pos){
+    char res = 0;
+    byte = (byte>>(15-pos))&1;
+    if(byte==1) return 1;
+    else return 0;
+}
+
+void append_crc(char* array,int array_len){
+
+}
+
+int is_corrupted(char* array,int array_len){
+
 }
