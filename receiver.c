@@ -20,17 +20,14 @@ void handle_incoming_msgs(Receiver * receiver,
     //    5) Do sliding window protocol for sender/receiver pair
 
     int incoming_msgs_length = ll_get_length(receiver->input_framelist_head);
-    uint16_t send_id; //发送方的id
     while (incoming_msgs_length > 0)
     {
         //Pop a node off the front of the link list and update the count
         //从链表里取结点，这个结点不是帧，只是包含了消息
         LLnode * ll_inmsg_node = ll_pop_node(&receiver->input_framelist_head);
-
         //每次从消息队列取一个节点出来，把发送者id取出来，发送确认报文的时候要用到
-        send_id = ((char *)ll_inmsg_node->value)[2];
-        //--incoming_msgs_length; //好像可以优化成--，再次获取长度效率太低
-        incoming_msgs_length = ll_get_length(receiver->input_framelist_head);
+        --incoming_msgs_length; //好像可以优化成--，再次获取长度效率太低
+        //incoming_msgs_length = ll_get_length(receiver->input_framelist_head);
 
         //DUMMY CODE: Print the raw_char_buf
         //NOTE: You should not blindly print messages!
@@ -43,27 +40,28 @@ void handle_incoming_msgs(Receiver * receiver,
         //把结点里的消息转为帧
         Frame * inframe = convert_char_to_frame(raw_char_buf);
 
-        //Free raw_char_buf
-        free(raw_char_buf);
-        
+        //填充确认报文
+        Frame * outframe = (Frame *) malloc(sizeof(Frame));
+        outframe->destinationId = inframe->sourceId;
+        outframe->sourceId = inframe->destinationId;
+        outframe->ack = 1;
+        outframe->seq = inframe->seq+1;
+        char* uCrcOutFrameChar = convert_frame_to_char(outframe);
+        outframe->crc = crc16(uCrcOutFrameChar,MAX_FRAME_SIZE);
+        char* CrcOutFrameChar = convert_frame_to_char(outframe);
+        //确认报文添加到发送队列
+        ll_append_node(outgoing_frames_head_ptr,CrcOutFrameChar);
+
         printf("<RECV_%d>:[%s]\n", receiver->recv_id, inframe->data);
 
+        //Free raw_char_buf
+        free(raw_char_buf);
         free(inframe);
+        free(outframe);
+        free(uCrcOutFrameChar);
+        free(CrcOutFrameChar);
         free(ll_inmsg_node);
 
-        //把确认报文ack添加到outgoing_frames_head_ptr，它会把帧取出来发送给发送者
-        char data[MAX_FRAME_SIZE];
-        data[2]=receiver->recv_id;
-        data[4]=send_id;
-        data[6] = 1;
-        uint16_t crc = crc16(data+2,46);
-        char crc1, crc2;
-        crc1 = crc; //低地址后八位
-        crc2 = crc>>8; //高地址前八位
-        data[0] = crc2;
-        data[1] = crc1;
-        Frame *outframe = convert_char_to_frame(data);
-        ll_append_node(&outgoing_frames_head_ptr,(void *)(outframe->data));
     }
 }
 
@@ -149,8 +147,8 @@ void * run_receiver(void * input_receiver)
 
             //Free up the ll_outframe_node
             free(ll_outframe_node);
-            //--ll_outgoing_frame_length; //这里同样可以优化
-            ll_outgoing_frame_length = ll_get_length(outgoing_frames_head);
+            --ll_outgoing_frame_length; //这里同样可以优化
+            //ll_outgoing_frame_length = ll_get_length(outgoing_frames_head);
         }
     }
     pthread_exit(NULL);

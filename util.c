@@ -127,8 +127,8 @@ char * convert_frame_to_char(Frame * frame)
            0,
            MAX_FRAME_SIZE);
     memcpy(char_buffer, 
-           frame->data,
-           FRAME_PAYLOAD_SIZE);
+           frame,
+           MAX_FRAME_SIZE);
     return char_buffer;
 }
 
@@ -139,13 +139,13 @@ Frame * convert_char_to_frame(char * char_buf)
     //为帧创建空间
     Frame * frame = (Frame *) malloc(sizeof(Frame));
     //为帧设置初始化值
-    memset(frame->data,
+    memset(frame,
            0,
-           sizeof(char)*sizeof(frame->data));
+           sizeof(char)*sizeof(frame));
     //为帧赋值消息内容
-    memcpy(frame->data, 
+    memcpy(frame, 
            char_buf,
-           sizeof(char)*sizeof(frame->data));
+           sizeof(char)*sizeof(frame));
     return frame;
 }
 
@@ -173,4 +173,20 @@ char get_bit(uint16_t byte,int pos){
     byte = (byte>>(15-pos))&1;
     if(byte==1) return 1;
     else return 0;
+}
+
+//连续两个字节合并成一个short
+uint16_t charIntegrate(char c1,char c2){
+    uint16_t res;
+    res = res|c2;
+    res = res<<8;
+    res = res|c1;
+    return res;
+}
+
+char* charBreak(uint16_t data){
+    static char res[2];
+    res[1] = data;
+    res[0] = data>>8;
+    return res;
 }

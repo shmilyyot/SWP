@@ -36,5 +36,6 @@ char get_bit(uint16_t byte,int pos);
 uint16_t crc16(char* array,int array_len);
 void append_crc(char* array,int array_len);
 int is_corrupted(char* array,int array_len);
-
+uint16_t charIntegrate(char c1,char c2);
+char* charBreak(uint16_t data);
 #endif
