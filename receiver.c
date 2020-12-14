@@ -7,7 +7,7 @@ void init_receiver(Receiver * receiver,
     receiver->recv_id = id;
     receiver->input_framelist_head = NULL;
     //初始化接收缓冲区
-    receiver->buffer_R = (Frame *)malloc(sizeof(Frame)*MAX_FRAME_SIZE); 
+    //receiver->buffer_R = (Frame *)malloc(sizeof(Frame)*MAX_FRAME_SIZE); 
 }
 
 //处理到达的信息
@@ -43,20 +43,39 @@ void handle_incoming_msgs(Receiver * receiver,
         //把结点里的消息转为帧
         Frame * inframe = convert_char_to_frame(raw_char_buf);
 
+        char ack = 1;  //判断当前帧应该用哪种确认报文，默认是确认接收报文
+        //如果是非目标帧或者帧损坏，直接丢弃
+        if(inframe->destinationId != receiver->recv_id){
+            free(ll_inmsg_node);
+            free(raw_char_buf);
+            free(inframe);
+            continue;
+        }
+        if(is_corrupted(raw_char_buf,MAX_FRAME_SIZE)==1){
+            free(ll_inmsg_node);
+            free(raw_char_buf);
+            free(inframe);
+            continue;
+        }
+        if(inframe->ack == 4){
+            //如果这是一个重传的帧
+        }
+
+        //打印出来就算接收到了
+        printf("<RECV_%d>:[%s]\n", receiver->recv_id, inframe->data);
+
+        //只有正确接收确认的帧才会发确认报文
         //填充确认报文
         Frame * outframe = (Frame *) malloc(sizeof(Frame));
         outframe->destinationId = inframe->sourceId;
         outframe->sourceId = inframe->destinationId;
-        outframe->ack = 1;
+        outframe->ack = ack;
         outframe->seq = inframe->seq+1;
         char* uCrcOutFrameChar = convert_frame_to_char(outframe);
-        outframe->crc = crc16(uCrcOutFrameChar,MAX_FRAME_SIZE);
+        outframe->crc = crc16(uCrcOutFrameChar+2,MAX_FRAME_SIZE-2);
         char* CrcOutFrameChar = convert_frame_to_char(outframe);
         //确认报文添加到发送队列
         ll_append_node(outgoing_frames_head_ptr,CrcOutFrameChar);
-        
-        //打印出来就算接收到了
-        printf("<RECV_%d>:[%s]\n", receiver->recv_id, inframe->data);
 
         //Free raw_char_buf
         free(raw_char_buf);

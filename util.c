@@ -141,11 +141,11 @@ Frame * convert_char_to_frame(char * char_buf)
     //为帧设置初始化值
     memset(frame,
            0,
-           sizeof(char)*sizeof(frame));
+           sizeof(char)*sizeof(Frame));
     //为帧赋值消息内容
     memcpy(frame, 
            char_buf,
-           sizeof(char)*sizeof(frame));
+           sizeof(char)*sizeof(Frame));
     return frame;
 }
 
@@ -175,18 +175,9 @@ char get_bit(uint16_t byte,int pos){
     else return 0;
 }
 
-//连续两个字节合并成一个short
-uint16_t charIntegrate(char c1,char c2){
-    uint16_t res;
-    res = res|c2;
-    res = res<<8;
-    res = res|c1;
-    return res;
-}
-
-char* charBreak(uint16_t data){
-    static char res[2];
-    res[1] = data;
-    res[0] = data>>8;
-    return res;
+int is_corrupted(char* array,int array_len){
+    uint16_t crc = crc16(array+2,array_len-2);
+    Frame * frame = convert_char_to_frame(array);
+    if(crc == frame->crc) return 0;
+    else return 1;
 }

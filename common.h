@@ -72,9 +72,6 @@ struct Receiver_t
     pthread_cond_t buffer_cv;
     LLnode* input_framelist_head;
     uint16_t recv_id;
-    //先一个吧
-    //指向m个接收缓冲区队列的指针
-    Frame * buffer_R;
 };
 
 struct Sender_t
@@ -95,9 +92,6 @@ struct Sender_t
     LLnode * input_framelist_head;
     //发送id
     uint16_t send_id;
-    //先一个
-    //指向n个发送缓冲区队列的指针
-    Frame * buffer_S;
 };
 
 enum SendFrame_DstType 
@@ -113,16 +107,16 @@ typedef struct Receiver_t Receiver;
 #define MAX_FRAME_SIZE 48
 //TODO: You should change this!
 //Remember, your frame can be AT MOST 48 bytes!
-#define FRAME_PAYLOAD_SIZE 32   //帧的有效负载
+#define FRAME_PAYLOAD_SIZE 41   //帧的有效负载
 //帧的结构
 struct Frame_t
 {
+    char data[FRAME_PAYLOAD_SIZE]; //帧的内容装在数组里面
+    uint8_t seq; //顺序号
     uint16_t crc; //crc冗余码
     uint16_t sourceId; //源地址
     uint16_t destinationId; //目的地址
-    uint8_t ack; //确认号 0代表是发送帧，1代表正确接收，2代表坏包，3代表没收到
-    uint8_t seq; //顺序号
-    char data[FRAME_PAYLOAD_SIZE]; //帧的内容装在数组里面
+    //char data[48];
 };
 typedef struct Frame_t Frame;
 

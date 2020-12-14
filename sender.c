@@ -7,7 +7,7 @@ void init_sender(Sender * sender, int id)
     sender->input_cmdlist_head = NULL;
     sender->input_framelist_head = NULL;
     //初始化发送缓冲区
-    sender->buffer_S = (Frame*)malloc(sizeof(Frame)*MAX_FRAME_SIZE);
+    //sender->buffer_S = (Frame*)malloc(sizeof(Frame)*MAX_FRAME_SIZE);
 }
 
 struct timeval * sender_get_next_expiring_timeval(Sender * sender)
@@ -20,6 +20,21 @@ struct timeval * sender_get_next_expiring_timeval(Sender * sender)
 void handle_incoming_acks(Sender * sender,
                           LLnode ** outgoing_frames_head_ptr)
 {
+    LLnode * incoming_acks = ll_pop_node(outgoing_frames_head_ptr);
+    Frame * incoming_frame = convert_char_to_frame((char *)incoming_acks->value);
+    char * incoming_frame_Char = convert_frame_to_char(incoming_frame);
+    //如果包损坏
+    if(is_corrupted(incoming_frame_Char,MAX_FRAME_SIZE)==1){
+        
+    }
+    //如果这个帧不是这个发送者的
+    if(incoming_frame->destinationId != sender->send_id){
+
+    }
+    //这个确认帧对应的帧成功发送，窗口开始滑动
+    free(incoming_acks);
+    free(incoming_frame);
+    free(incoming_frame_Char);
     //TODO: Suggested steps for handling incoming ACKs
     //    1) Dequeue the ACK from the sender->input_framelist_head
     //    2) Convert the char * buffer to a Frame data type
@@ -79,8 +94,10 @@ void handle_input_cmds(Sender * sender,
             outgoing_frame->sourceId = outgoing_cmd->src_id;
             outgoing_frame->destinationId = outgoing_cmd->dst_id;
             outgoing_frame->seq = messageSeq++;
-            uint16_t crc = crc16(outgoing_frame,MAX_FRAME_SIZE);
+            char * outgoing_str = convert_frame_to_char(outgoing_frame);
+            uint16_t crc = crc16(outgoing_str+2,MAX_FRAME_SIZE-2);
             outgoing_frame->crc = crc;
+
             //At this point, we don't need the outgoing_cmd
             free(outgoing_cmd->message);
             free(outgoing_cmd);
@@ -181,6 +198,12 @@ void * run_sender(void * input_sender)
         //Check whether anything has arrived
         int input_cmd_length = ll_get_length(sender->input_cmdlist_head);
         int inframe_queue_length = ll_get_length(sender->input_framelist_head);
+        //把发送过来的ack取出来放到队列里
+        // while(inframe_queue_length>0){
+        //     --inframe_queue_length;
+        //     LLnode * inframe = ll_pop_node(sender->input_framelist_head);
+        //     ll_append_node(&outgoing_frames_head,inframe);
+        // }
         
         //Nothing (cmd nor incoming frame) has arrived, so do a timed wait on the sender's condition variable (releases lock)
         //A signal on the condition variable will wakeup the thread and reaquire the lock
