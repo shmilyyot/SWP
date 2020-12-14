@@ -16,7 +16,9 @@
 #define MAX_COMMAND_LENGTH 16
 #define AUTOMATED_FILENAME 512
 typedef unsigned char uchar_t;
-
+#define WINDOW_SIZE 8;
+//LAR最近接收到的确认帧,LFS最近发送的帧
+//NFE期待的下一帧的序号，RWS接收窗口大小
 //System configuration information
 struct SysConfig_t
 {
@@ -68,11 +70,11 @@ struct Receiver_t
     // 4) recv_id
     pthread_mutex_t buffer_mutex;
     pthread_cond_t buffer_cv;
-    LLnode * input_framelist_head;
-    
+    LLnode* input_framelist_head;
     uint16_t recv_id;
-    //接收窗口
-    LLnode * buffer_C;
+    //先一个吧
+    //指向m个接收缓冲区队列的指针
+    Frame * buffer_R;
 };
 
 struct Sender_t
@@ -93,8 +95,9 @@ struct Sender_t
     LLnode * input_framelist_head;
     //发送id
     uint16_t send_id;
-    //缓冲区
-    LLnode * buffer_S;
+    //先一个
+    //指向n个发送缓冲区队列的指针
+    Frame * buffer_S;
 };
 
 enum SendFrame_DstType 
@@ -117,7 +120,7 @@ struct Frame_t
     uint16_t crc; //crc冗余码
     uint16_t sourceId; //源地址
     uint16_t destinationId; //目的地址
-    uint8_t ack; //确认号 1代表正确接收，1代表坏包，2代表没收到
+    uint8_t ack; //确认号 0代表是发送帧，1代表正确接收，2代表坏包，3代表没收到
     uint8_t seq; //顺序号
     char data[FRAME_PAYLOAD_SIZE]; //帧的内容装在数组里面
 };

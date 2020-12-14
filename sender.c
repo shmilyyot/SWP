@@ -6,6 +6,8 @@ void init_sender(Sender * sender, int id)
     sender->send_id = id;
     sender->input_cmdlist_head = NULL;
     sender->input_framelist_head = NULL;
+    //初始化发送缓冲区
+    sender->buffer_S = (Frame*)malloc(sizeof(Frame)*MAX_FRAME_SIZE);
 }
 
 struct timeval * sender_get_next_expiring_timeval(Sender * sender)
@@ -26,7 +28,8 @@ void handle_incoming_acks(Sender * sender,
     //    5) Do sliding window protocol for sender/receiver pair   
 }
 
-
+//帧最大序列号255
+#define MAX_MESSAGE_SEQ 255;
 void handle_input_cmds(Sender * sender,
                        LLnode ** outgoing_frames_head_ptr)
 {
@@ -41,10 +44,12 @@ void handle_input_cmds(Sender * sender,
         
     //Recheck the command queue length to see if stdin_thread dumped a command on us
     input_cmd_length = ll_get_length(sender->input_cmdlist_head);
+    int messageSeq = 0;
     while (input_cmd_length > 0)
     {
         //Pop a node off and update the input_cmd_length
         LLnode * ll_input_cmd_node = ll_pop_node(&sender->input_cmdlist_head);
+        if(messageSeq>=255) messageSeq=0;
         input_cmd_length = ll_get_length(sender->input_cmdlist_head);
 
         //Cast to Cmd type and free up the memory for the node
@@ -60,7 +65,7 @@ void handle_input_cmds(Sender * sender,
         int msg_length = strlen(outgoing_cmd->message);
         if (msg_length > MAX_FRAME_SIZE)
         {
-            //Do something about messages that exceed the frame size
+            //Do something about messages that exceed the frame size  假如信息过长，要切分
             printf("<SEND_%d>: sending messages of length greater than %d is not implemented\n", sender->send_id, MAX_FRAME_SIZE);
         }
         else
@@ -69,6 +74,13 @@ void handle_input_cmds(Sender * sender,
             Frame * outgoing_frame = (Frame *) malloc (sizeof(Frame));
             strcpy(outgoing_frame->data, outgoing_cmd->message);
 
+            //填充发送帧的信息,添加了冗余码
+            outgoing_frame->ack = 0;
+            outgoing_frame->sourceId = outgoing_cmd->src_id;
+            outgoing_frame->destinationId = outgoing_cmd->dst_id;
+            outgoing_frame->seq = messageSeq++;
+            uint16_t crc = crc16(outgoing_frame,MAX_FRAME_SIZE);
+            outgoing_frame->crc = crc;
             //At this point, we don't need the outgoing_cmd
             free(outgoing_cmd->message);
             free(outgoing_cmd);
@@ -209,8 +221,8 @@ void * run_sender(void * input_sender)
 
             //Free up the ll_outframe_node
             free(ll_outframe_node);
-
-            ll_outgoing_frame_length = ll_get_length(outgoing_frames_head);
+            --ll_outgoing_frame_length;
+            // ll_outgoing_frame_length = ll_get_length(outgoing_frames_head);
         }
     }
     pthread_exit(NULL);

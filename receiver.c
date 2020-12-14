@@ -6,6 +6,8 @@ void init_receiver(Receiver * receiver,
 {
     receiver->recv_id = id;
     receiver->input_framelist_head = NULL;
+    //初始化接收缓冲区
+    receiver->buffer_R = (Frame *)malloc(sizeof(Frame)*MAX_FRAME_SIZE); 
 }
 
 //处理到达的信息
@@ -29,6 +31,7 @@ void handle_incoming_msgs(Receiver * receiver,
         --incoming_msgs_length; //好像可以优化成--，再次获取长度效率太低
         //incoming_msgs_length = ll_get_length(receiver->input_framelist_head);
 
+        //校验冗余码
         //DUMMY CODE: Print the raw_char_buf
         //NOTE: You should not blindly print messages!
         //      Ask yourself: Is this message really for me?
@@ -51,7 +54,8 @@ void handle_incoming_msgs(Receiver * receiver,
         char* CrcOutFrameChar = convert_frame_to_char(outframe);
         //确认报文添加到发送队列
         ll_append_node(outgoing_frames_head_ptr,CrcOutFrameChar);
-
+        
+        //打印出来就算接收到了
         printf("<RECV_%d>:[%s]\n", receiver->recv_id, inframe->data);
 
         //Free raw_char_buf
