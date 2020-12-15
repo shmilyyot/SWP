@@ -20,21 +20,21 @@ struct timeval * sender_get_next_expiring_timeval(Sender * sender)
 void handle_incoming_acks(Sender * sender,
                           LLnode ** outgoing_frames_head_ptr)
 {
-    LLnode * incoming_acks = ll_pop_node(outgoing_frames_head_ptr);
-    Frame * incoming_frame = convert_char_to_frame((char *)incoming_acks->value);
-    char * incoming_frame_Char = convert_frame_to_char(incoming_frame);
-    //如果包损坏
-    if(is_corrupted(incoming_frame_Char,MAX_FRAME_SIZE)==1){
+    // LLnode * incoming_acks = ll_pop_node(outgoing_frames_head_ptr);
+    // Frame * incoming_frame = convert_char_to_frame((char *)incoming_acks->value);
+    // char * incoming_frame_Char = convert_frame_to_char(incoming_frame);
+    // //如果包损坏
+    // if(is_corrupted(incoming_frame_Char,MAX_FRAME_SIZE)==1){
         
-    }
-    //如果这个帧不是这个发送者的
-    if(incoming_frame->destinationId != sender->send_id){
+    // }
+    // //如果这个帧不是这个发送者的
+    // if(incoming_frame->destinationId != sender->send_id){
 
-    }
-    //这个确认帧对应的帧成功发送，窗口开始滑动
-    free(incoming_acks);
-    free(incoming_frame);
-    free(incoming_frame_Char);
+    // }
+    // //这个确认帧对应的帧成功发送，窗口开始滑动
+    // free(incoming_acks);
+    // free(incoming_frame);
+    // free(incoming_frame_Char);
     //TODO: Suggested steps for handling incoming ACKs
     //    1) Dequeue the ACK from the sender->input_framelist_head
     //    2) Convert the char * buffer to a Frame data type
@@ -44,7 +44,7 @@ void handle_incoming_acks(Sender * sender,
 }
 
 //帧最大序列号255
-#define MAX_MESSAGE_SEQ 255;
+#define MAX_MESSAGE_SEQ 255
 void handle_input_cmds(Sender * sender,
                        LLnode ** outgoing_frames_head_ptr)
 {
@@ -64,7 +64,7 @@ void handle_input_cmds(Sender * sender,
     {
         //Pop a node off and update the input_cmd_length
         LLnode * ll_input_cmd_node = ll_pop_node(&sender->input_cmdlist_head);
-        if(messageSeq>=255) messageSeq=0;
+        if(messageSeq>=MAX_MESSAGE_SEQ) messageSeq=0;
         input_cmd_length = ll_get_length(sender->input_cmdlist_head);
 
         //Cast to Cmd type and free up the memory for the node
@@ -90,14 +90,12 @@ void handle_input_cmds(Sender * sender,
             strcpy(outgoing_frame->data, outgoing_cmd->message);
 
             //填充发送帧的信息,添加了冗余码
-            outgoing_frame->ack = 0;
             outgoing_frame->sourceId = outgoing_cmd->src_id;
             outgoing_frame->destinationId = outgoing_cmd->dst_id;
             outgoing_frame->seq = messageSeq++;
             char * outgoing_str = convert_frame_to_char(outgoing_frame);
             uint16_t crc = crc16(outgoing_str+2,MAX_FRAME_SIZE-2);
             outgoing_frame->crc = crc;
-
             //At this point, we don't need the outgoing_cmd
             free(outgoing_cmd->message);
             free(outgoing_cmd);

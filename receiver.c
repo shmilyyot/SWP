@@ -41,24 +41,21 @@ void handle_incoming_msgs(Receiver * receiver,
         //把收到的消息从帧的value里取出来。并且强制转型为char*，本来是void*        
         char * raw_char_buf = (char *) ll_inmsg_node->value;
         //把结点里的消息转为帧
-        Frame * inframe = convert_char_to_frame(raw_char_buf);
-
-        char ack = 1;  //判断当前帧应该用哪种确认报文，默认是确认接收报文
+        Frame *inframe = convert_char_to_frame(raw_char_buf);
         //如果是非目标帧或者帧损坏，直接丢弃
         if(inframe->destinationId != receiver->recv_id){
+            fprintf(stderr, "This Frame is not for this receiver.");
             free(ll_inmsg_node);
             free(raw_char_buf);
             free(inframe);
             continue;
         }
         if(is_corrupted(raw_char_buf,MAX_FRAME_SIZE)==1){
+            fprintf(stderr, "Error in finding the frame is corrupted!");
             free(ll_inmsg_node);
             free(raw_char_buf);
             free(inframe);
             continue;
-        }
-        if(inframe->ack == 4){
-            //如果这是一个重传的帧
         }
 
         //打印出来就算接收到了
@@ -69,13 +66,12 @@ void handle_incoming_msgs(Receiver * receiver,
         Frame * outframe = (Frame *) malloc(sizeof(Frame));
         outframe->destinationId = inframe->sourceId;
         outframe->sourceId = inframe->destinationId;
-        outframe->ack = ack;
         outframe->seq = inframe->seq+1;
         char* uCrcOutFrameChar = convert_frame_to_char(outframe);
         outframe->crc = crc16(uCrcOutFrameChar+2,MAX_FRAME_SIZE-2);
         char* CrcOutFrameChar = convert_frame_to_char(outframe);
         //确认报文添加到发送队列
-        ll_append_node(outgoing_frames_head_ptr,CrcOutFrameChar);
+        //ll_append_node(outgoing_frames_head_ptr,CrcOutFrameChar);
 
         //Free raw_char_buf
         free(raw_char_buf);

@@ -176,8 +176,11 @@ char get_bit(uint16_t byte,int pos){
 }
 
 int is_corrupted(char* array,int array_len){
-    uint16_t crc = crc16(array+2,array_len-2);
     Frame * frame = convert_char_to_frame(array);
+    uint16_t crc = crc16(array+2,array_len-2);
+
+    fprintf(stdout, "%d", crc);
+    
     if(crc == frame->crc) return 0;
     else return 1;
 }
