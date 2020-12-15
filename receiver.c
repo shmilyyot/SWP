@@ -43,13 +43,6 @@ void handle_incoming_msgs(Receiver * receiver,
         //把结点里的消息转为帧
         Frame *inframe = convert_char_to_frame(raw_char_buf);
         //如果是非目标帧或者帧损坏，直接丢弃
-        if(inframe->destinationId != receiver->recv_id){
-            fprintf(stderr, "This Frame is not for this receiver.");
-            free(ll_inmsg_node);
-            free(raw_char_buf);
-            free(inframe);
-            continue;
-        }
         if(is_corrupted(raw_char_buf,MAX_FRAME_SIZE)==1){
             fprintf(stderr, "Error in finding the frame is corrupted!");
             free(ll_inmsg_node);
@@ -57,28 +50,38 @@ void handle_incoming_msgs(Receiver * receiver,
             free(inframe);
             continue;
         }
-
+        if(inframe->destinationId != receiver->recv_id){
+            fprintf(stderr, "This Frame is not for this receiver.");
+            free(ll_inmsg_node);
+            free(raw_char_buf);
+            free(inframe);
+            continue;
+        }
         //打印出来就算接收到了
         printf("<RECV_%d>:[%s]\n", receiver->recv_id, inframe->data);
 
         //只有正确接收确认的帧才会发确认报文
         //填充确认报文
         Frame * outframe = (Frame *) malloc(sizeof(Frame));
+        memset(outframe->data,0,40*sizeof(char));
+        strcpy(outframe->data, inframe->data);
         outframe->destinationId = inframe->sourceId;
         outframe->sourceId = inframe->destinationId;
-        outframe->seq = inframe->seq+1;
+        outframe->seq = inframe->seq;
+        outframe->ack = 1;
         char* uCrcOutFrameChar = convert_frame_to_char(outframe);
-        outframe->crc = crc16(uCrcOutFrameChar+2,MAX_FRAME_SIZE-2);
+        uint16_t crc = crc16(uCrcOutFrameChar,MAX_FRAME_SIZE-2);
+        outframe->crc = crc;
         char* CrcOutFrameChar = convert_frame_to_char(outframe);
+        //先注释，不然测试程序时无法exit结束任务
         //确认报文添加到发送队列
-        //ll_append_node(outgoing_frames_head_ptr,CrcOutFrameChar);
+        ll_append_node(outgoing_frames_head_ptr,CrcOutFrameChar);
 
         //Free raw_char_buf
         free(raw_char_buf);
         free(inframe);
         free(outframe);
         free(uCrcOutFrameChar);
-        free(CrcOutFrameChar);
         free(ll_inmsg_node);
 
     }
@@ -87,9 +90,6 @@ void handle_incoming_msgs(Receiver * receiver,
 //线程启动函数，参数是每一个线程的receiver，包含了id等参数值
 void * run_receiver(void * input_receiver)
 {   
-    //更高精度的时间计算。
-    //struct timespec有两个成员，一个是秒，一个是纳秒, 所以最高精确度是纳秒。 
-    //struct timeval有两个成员，一个是秒，一个是微秒, 所以最高精确度是微秒。
     struct timespec   time_spec;
     struct timeval    curr_timeval;
     const int WAIT_SEC_TIME = 0;

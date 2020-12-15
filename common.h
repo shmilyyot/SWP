@@ -107,18 +107,24 @@ typedef struct Receiver_t Receiver;
 #define MAX_FRAME_SIZE 48
 //TODO: You should change this!
 //Remember, your frame can be AT MOST 48 bytes!
-#define FRAME_PAYLOAD_SIZE 41   //帧的有效负载
+#define FRAME_PAYLOAD_SIZE 39   //帧的有效负载
 //帧的结构
 struct Frame_t
 {
-    char data[FRAME_PAYLOAD_SIZE]; //帧的内容装在数组里面
+    char data[FRAME_PAYLOAD_SIZE+1]; //帧的内容装在数组里面
     uint8_t seq; //顺序号
-    uint16_t crc; //crc冗余码
+    uint8_t ack; //确认号 0是发送帧，1是确认接受帧，2是坏包，3是重发发送帧
     uint16_t sourceId; //源地址
-    uint16_t destinationId; //目的地址
-    //char data[48];
+    uint16_t destinationId; //目的地址uint16_t
+    uint16_t crc; //crc冗余码
 };
 typedef struct Frame_t Frame;
+
+//滑动窗口
+struct Windows{
+    LLnode * windows;
+};
+typedef struct Windows Window;
 
 
 //Declare global variables here

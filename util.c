@@ -177,10 +177,18 @@ char get_bit(uint16_t byte,int pos){
 
 int is_corrupted(char* array,int array_len){
     Frame * frame = convert_char_to_frame(array);
-    uint16_t crc = crc16(array+2,array_len-2);
+    uint16_t crc = crc16(array,array_len-2);
+    return crc != frame->crc;
+}
 
-    fprintf(stdout, "%d", crc);
-    
-    if(crc == frame->crc) return 0;
-    else return 1;
+void print_frame(Frame* frame)
+{
+    fprintf(stderr, "\nframe:\n");
+    fprintf(stderr, "frame->crc=%d\n", frame->crc);
+    fprintf(stderr, "frame->src=%d\n", frame->sourceId);
+    fprintf(stderr, "frame->dst=%d\n", frame->destinationId);
+    fprintf(stderr, "frame->seq=%d\n", frame->seq);
+    fprintf(stderr, "frame->ack=%d\n", frame->ack);
+    fprintf(stderr, "frame->data=%s\n", frame->data);
+    fprintf(stderr, "#frame--------\n");
 }

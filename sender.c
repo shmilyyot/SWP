@@ -20,21 +20,43 @@ struct timeval * sender_get_next_expiring_timeval(Sender * sender)
 void handle_incoming_acks(Sender * sender,
                           LLnode ** outgoing_frames_head_ptr)
 {
-    // LLnode * incoming_acks = ll_pop_node(outgoing_frames_head_ptr);
-    // Frame * incoming_frame = convert_char_to_frame((char *)incoming_acks->value);
-    // char * incoming_frame_Char = convert_frame_to_char(incoming_frame);
-    // //如果包损坏
-    // if(is_corrupted(incoming_frame_Char,MAX_FRAME_SIZE)==1){
-        
-    // }
-    // //如果这个帧不是这个发送者的
-    // if(incoming_frame->destinationId != sender->send_id){
+    int incoming_acks_length = ll_get_length(sender->input_framelist_head);
+    while(incoming_acks_length>0){
+        //获取接收到的ack
+        LLnode * incoming_acks = ll_pop_node(&sender->input_framelist_head);
+        --incoming_acks_length;
+        char * incoming_frame_Char = (char *)incoming_acks->value;
+        Frame * incoming_frame = convert_char_to_frame(incoming_frame_Char);
 
-    // }
-    // //这个确认帧对应的帧成功发送，窗口开始滑动
-    // free(incoming_acks);
-    // free(incoming_frame);
-    // free(incoming_frame_Char);
+        //如果确认包损坏，直接不管，等下一个确认包过来
+        if(is_corrupted(incoming_frame_Char,MAX_FRAME_SIZE)==1){
+            fprintf(stderr, "Error in finding the frame is corrupted!");
+            free(incoming_acks);
+            free(incoming_frame);
+            free(incoming_frame_Char);
+            continue;
+        }
+        //如果这个帧不是这个发送者的,直接不管
+        if(incoming_frame->destinationId != sender->send_id){
+            fprintf(stderr, "This Frame is not for this sender.");
+            free(incoming_acks);
+            free(incoming_frame);
+            free(incoming_frame_Char);
+            continue;
+        }
+        //接收方要求重传需要为seq的帧
+        if(incoming_frame->ack == 2){
+            //重传
+        }
+
+        //这个确认帧对应的帧成功发送，窗口开始滑动
+
+
+
+        free(incoming_acks);
+        free(incoming_frame);
+        free(incoming_frame_Char);
+    }
     //TODO: Suggested steps for handling incoming ACKs
     //    1) Dequeue the ACK from the sender->input_framelist_head
     //    2) Convert the char * buffer to a Frame data type
@@ -88,14 +110,16 @@ void handle_input_cmds(Sender * sender,
             //This is probably ONLY one step you want
             Frame * outgoing_frame = (Frame *) malloc (sizeof(Frame));
             strcpy(outgoing_frame->data, outgoing_cmd->message);
-
+            char ack = 0;
             //填充发送帧的信息,添加了冗余码
             outgoing_frame->sourceId = outgoing_cmd->src_id;
             outgoing_frame->destinationId = outgoing_cmd->dst_id;
             outgoing_frame->seq = messageSeq++;
+            outgoing_frame->ack = ack;
             char * outgoing_str = convert_frame_to_char(outgoing_frame);
-            uint16_t crc = crc16(outgoing_str+2,MAX_FRAME_SIZE-2);
+            uint16_t crc = crc16(outgoing_str,MAX_FRAME_SIZE-2);
             outgoing_frame->crc = crc;
+
             //At this point, we don't need the outgoing_cmd
             free(outgoing_cmd->message);
             free(outgoing_cmd);
@@ -109,7 +133,7 @@ void handle_input_cmds(Sender * sender,
     }   
 }
 
-
+//处理超时的帧
 void handle_timedout_frames(Sender * sender,
                             LLnode ** outgoing_frames_head_ptr)
 {
@@ -121,8 +145,11 @@ void handle_timedout_frames(Sender * sender,
 
 
 void * run_sender(void * input_sender)
-{    
+{   
+    //更高精度的时间计算。
+    //struct timespec有两个成员，一个是秒，一个是纳秒, 所以最高精确度是纳秒。 
     struct timespec   time_spec;
+    //struct timeval有两个成员，一个是秒，一个是微秒, 所以最高精确度是微秒。
     struct timeval    curr_timeval;
     const int WAIT_SEC_TIME = 0;
     const long WAIT_USEC_TIME = 100000;
@@ -145,16 +172,17 @@ void * run_sender(void * input_sender)
     {    
         outgoing_frames_head = NULL;
 
-        //Get the current time
+        //Get the current time 获取当前时间,毫秒精度
         gettimeofday(&curr_timeval, 
                      NULL);
 
+        //从毫秒精度手动将毫秒*1000，升级到纳秒精度 time_spec用来考虑什么时候唤醒线程
         //time_spec is a data structure used to specify when the thread should wake up
         //The time is specified as an ABSOLUTE (meaning, conceptually, you specify 9/23/2010 @ 1pm, wakeup)
         time_spec.tv_sec  = curr_timeval.tv_sec;
         time_spec.tv_nsec = curr_timeval.tv_usec * 1000;
 
-        //Check for the next event we should handle
+        //Check for the next event we should handle 
         expiring_timeval = sender_get_next_expiring_timeval(sender);
 
         //Perform full on timeout
@@ -196,13 +224,7 @@ void * run_sender(void * input_sender)
         //Check whether anything has arrived
         int input_cmd_length = ll_get_length(sender->input_cmdlist_head);
         int inframe_queue_length = ll_get_length(sender->input_framelist_head);
-        //把发送过来的ack取出来放到队列里
-        // while(inframe_queue_length>0){
-        //     --inframe_queue_length;
-        //     LLnode * inframe = ll_pop_node(sender->input_framelist_head);
-        //     ll_append_node(&outgoing_frames_head,inframe);
-        // }
-        
+        //没有确认报文到达或者没有消息要发送，线程等待一下
         //Nothing (cmd nor incoming frame) has arrived, so do a timed wait on the sender's condition variable (releases lock)
         //A signal on the condition variable will wakeup the thread and reaquire the lock
         if (input_cmd_length == 0 &&
