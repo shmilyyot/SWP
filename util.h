@@ -36,6 +36,10 @@ char get_bit(uint16_t byte,int pos);
 uint16_t crc16(char* array,int array_len);
 void append_crc(char* array,int array_len);
 int is_corrupted(char* array,int array_len);
+//打印帧
 void print_frame(Frame * frame);
+//获取当前时间+一毫秒
 Timeout *get_timeout();
+//讲时间和帧封装进缓冲区
+void IntoBuffer(Timeout *timeout, Frame *frame);
 #endif

@@ -108,6 +108,7 @@ long timeval_usecdiff(struct timeval *start_time,
   return usec;
 }
 
+//获取当前时间，并且加一毫秒
 Timeout *get_timeout(){
     Timeout *timeout = (Timeout *)malloc(sizeof(Timeout));
     gettimeofday(timeout,NULL);
@@ -118,6 +119,7 @@ Timeout *get_timeout(){
     }
     return timeout;
 }
+
 
 //Print out messages entered by the user
 void print_cmd(Cmd * cmd)
@@ -201,4 +203,8 @@ void print_frame(Frame* frame)
     fprintf(stderr, "frame->ack=%d\n", frame->ack);
     fprintf(stderr, "frame->data=%s\n", frame->data);
     fprintf(stderr, "#frame--------\n");
+}
+
+void IntoBuffer(Timeout *timeout, Frame *frame){
+    
 }
