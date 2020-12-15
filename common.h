@@ -15,8 +15,8 @@
 
 #define MAX_COMMAND_LENGTH 16
 #define AUTOMATED_FILENAME 512
-typedef unsigned char uchar_t;
 #define WINDOW_SIZE 8;
+typedef struct timeval Timeout;
 //LAR最近接收到的确认帧,LFS最近发送的帧
 //NFE期待的下一帧的序号，RWS接收窗口大小
 //System configuration information

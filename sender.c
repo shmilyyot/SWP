@@ -124,6 +124,9 @@ void handle_input_cmds(Sender * sender,
             free(outgoing_cmd->message);
             free(outgoing_cmd);
 
+            //讲时间和帧一起放入缓冲区
+            Timeout *timeout = get_timeout();
+
             //Convert the message to the outgoing_charbuf
             char * outgoing_charbuf = convert_frame_to_char(outgoing_frame);
             ll_append_node(outgoing_frames_head_ptr,
@@ -152,7 +155,7 @@ void * run_sender(void * input_sender)
     //struct timeval有两个成员，一个是秒，一个是微秒, 所以最高精确度是微秒。
     struct timeval    curr_timeval;
     const int WAIT_SEC_TIME = 0;
-    const long WAIT_USEC_TIME = 100000;
+    const long WAIT_USEC_TIME = 100000; //一毫秒
     Sender * sender = (Sender *) input_sender;    
     LLnode * outgoing_frames_head;
     struct timeval * expiring_timeval;

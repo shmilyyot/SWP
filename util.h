@@ -37,4 +37,5 @@ uint16_t crc16(char* array,int array_len);
 void append_crc(char* array,int array_len);
 int is_corrupted(char* array,int array_len);
 void print_frame(Frame * frame);
+Timeout *get_timeout();
 #endif

@@ -20,4 +20,19 @@
 void init_sender(Sender *, int);
 void * run_sender(void *);
 
+struct Send_Frame_Info{
+    Frame *sframe;
+    Timeout* timeout;
+};
+typedef struct Send_Frame_Info sendInfo;
+
+//发送窗口
+struct Window_Sender{
+    uint8_t LAR;
+    uint8_t LFS; 
+    sendInfo * buffer[MAX_BUFFER_LENGTH];
+};
+typedef struct Window_Sender sWindow;
+
+
 #endif

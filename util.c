@@ -108,6 +108,16 @@ long timeval_usecdiff(struct timeval *start_time,
   return usec;
 }
 
+Timeout *get_timeout(){
+    Timeout *timeout = (Timeout *)malloc(sizeof(Timeout));
+    gettimeofday(timeout,NULL);
+    timeout->tv_usec += 100000;
+    if (timeout->tv_usec >= 1000000){
+        timeout->tv_sec++;
+        timeout->tv_usec -= 1000000;
+    }
+    return timeout;
+}
 
 //Print out messages entered by the user
 void print_cmd(Cmd * cmd)

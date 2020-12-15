@@ -19,4 +19,11 @@
 void init_receiver(Receiver *, int);
 void * run_receiver(void *);
 
+//接受窗口
+struct Window_Receiver{
+    uint8_t NFE;
+    uint8_t RWS;
+};
+
+typedef struct Window_Receiver rWindow;
 #endif
