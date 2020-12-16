@@ -51,5 +51,5 @@ recInfo* searchRecBuffer(uint8_t seq,Receiver *receiver);
 //判断这个帧是否在接收缓冲区已存在（防止确认报文丢失，重传了缓冲区已有的帧）
 int judgeRevBufferExit(uint8_t seq,Receiver* receiver);
 //字符串过长要切分
-void ll_split_head(LLnode **head_ptr,int payload_size);
+void ll_split_head(Sender* sender,Cmd * outgoing_cmd,int payload_size);
 #endif

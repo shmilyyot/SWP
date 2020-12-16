@@ -141,6 +141,10 @@ struct Sender_t
     //发送id
     uint16_t send_id;
     sWindow *window;
+    //单条cmd拆分出来的消息队列
+    LLnode* splitlist;
+    //消息序号
+    int messageSeq;
 };
 
 enum SendFrame_DstType 

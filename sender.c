@@ -13,6 +13,8 @@ void init_sender(Sender * sender, int id)
     for(int i=0;i<MAX_BUFFER_LENGTH;++i){
         ((sender->window->buffer)+i)->Status = 0; //刚开始缓冲区每一个窗口都是0，代表可以填充数据发送
     }
+    sender->splitlist = NULL;
+    sender->messageSeq = 0;
 }
 
 struct timeval * sender_get_next_expiring_timeval(Sender * sender)
@@ -30,51 +32,51 @@ void handle_incoming_acks(Sender * sender,
         //获取接收到的ack
         LLnode * incoming_acks = ll_pop_node(&sender->input_framelist_head);
         --incoming_acks_length;
-        char * incoming_frame_Char = (char *)incoming_acks->value;
-        Frame * incoming_frame = convert_char_to_frame(incoming_frame_Char);
+        // char * incoming_frame_Char = (char *)incoming_acks->value;
+        // Frame * incoming_frame = convert_char_to_frame(incoming_frame_Char);
 
-        //如果确认包损坏，直接不管，等下一个确认包过来
-        if(is_corrupted(incoming_frame_Char,MAX_FRAME_SIZE)==1){
-            fprintf(stderr, "Error in finding the frame is corrupted!");
-            free(incoming_acks);
-            free(incoming_frame);
-            free(incoming_frame_Char);
-            continue;
-        }
-        //如果这个帧不是这个发送者的,直接不管
-        if(incoming_frame->destinationId != sender->send_id){
-            fprintf(stderr, "This Frame is not for this sender.");
-            free(incoming_acks);
-            free(incoming_frame);
-            free(incoming_frame_Char);
-            continue;
-        }
+        // //如果确认包损坏，直接不管，等下一个确认包过来
+        // if(is_corrupted(incoming_frame_Char,MAX_FRAME_SIZE)==1){
+        //     fprintf(stderr, "Error in finding the frame is corrupted!");
+        //     free(incoming_acks);
+        //     free(incoming_frame);
+        //     free(incoming_frame_Char);
+        //     continue;
+        // }
+        // //如果这个帧不是这个发送者的,直接不管
+        // if(incoming_frame->destinationId != sender->send_id){
+        //     fprintf(stderr, "This Frame is not for this sender.");
+        //     free(incoming_acks);
+        //     free(incoming_frame);
+        //     free(incoming_frame_Char);
+        //     continue;
+        // }
 
-        //接收方要求重传需要为seq的帧
-        if(incoming_frame->ack == 2){
-            //重传
+        // //接收方要求重传需要为seq的帧
+        // if(incoming_frame->ack == 2){
+        //     //重传
 
-        }
+        // }
 
-        //这个确认帧对应的帧成功发送，释放缓冲区空间，将这个格子标志为0，窗口开始滑动
-        if(incoming_frame->ack == 1){
-            sendInfo* bufferFrame = searchSendBuffer(incoming_frame->seq,sender);
-            //print_frame(bufferFrame->sframe);
-            //fprintf(stderr,"%ld  %ld",bufferFrame->timeout->tv_sec,bufferFrame->timeout->tv_usec);
-            bufferFrame->Status = 0;
-            //释放这个指针指向的帧的时间戳的内存，这个指针还可以下一次赋值指向
-            free(bufferFrame->sframe);
-            free(bufferFrame->timeout);
+        // //这个确认帧对应的帧成功发送，释放缓冲区空间，将这个格子标志为0，窗口开始滑动
+        // if(incoming_frame->ack == 1){
+        //     sendInfo* bufferFrame = searchSendBuffer(incoming_frame->seq,sender);
+        //     //print_frame(bufferFrame->sframe);
+        //     //fprintf(stderr,"%ld  %ld",bufferFrame->timeout->tv_sec,bufferFrame->timeout->tv_usec);
+        //     bufferFrame->Status = 0;
+        //     //释放这个指针指向的帧的时间戳的内存，这个指针还可以下一次赋值指向
+        //     free(bufferFrame->sframe);
+        //     free(bufferFrame->timeout);
 
-            //窗口标志位滑动
-
-
-        }
+        //     //窗口标志位滑动
 
 
-        free(incoming_acks);
-        free(incoming_frame);
-        free(incoming_frame_Char);
+        // }
+
+
+        // free(incoming_acks);
+        // free(incoming_frame);
+        // free(incoming_frame_Char);
     }
     //TODO: Suggested steps for handling incoming ACKs
     //    1) Dequeue the ACK from the sender->input_framelist_head
@@ -95,19 +97,15 @@ void handle_input_cmds(Sender * sender,
     //    3) Set up the frame according to the sliding window protocol
     //    4) Compute CRC and add CRC to Frame
 
-    //如果缓冲区满了，消息不能发送，在队列里死等，直到发送缓冲区有空间
-    while(sendBufferFull(sender) == -1);
-
     int input_cmd_length = ll_get_length(sender->input_cmdlist_head);
     
     //Recheck the command queue length to see if stdin_thread dumped a command on us
     input_cmd_length = ll_get_length(sender->input_cmdlist_head);
-    int messageSeq = 0;
     while (input_cmd_length > 0)
     {
         //Pop a node off and update the input_cmd_length
         LLnode * ll_input_cmd_node = ll_pop_node(&sender->input_cmdlist_head);
-        if(messageSeq>=MAX_MESSAGE_SEQ) messageSeq=0;
+        if((sender->messageSeq)>=MAX_MESSAGE_SEQ) sender->messageSeq = 0;
         input_cmd_length = ll_get_length(sender->input_cmdlist_head);
 
         //Cast to Cmd type and free up the memory for the node
@@ -123,25 +121,36 @@ void handle_input_cmds(Sender * sender,
         int msg_length = strlen(outgoing_cmd->message);
         if (msg_length > MAX_FRAME_SIZE)
         {
-            //ll_split_head(head_ptr,FRAME_PAYLOAD_SIZE);
+
+            ll_split_head(sender,outgoing_cmd,FRAME_PAYLOAD_SIZE);
             //Do something about messages that exceed the frame size  假如信息过长，要切分
-            printf("<SEND_%d>: sending messages of length greater than %d is not implemented\n", sender->send_id, MAX_FRAME_SIZE);
+            printf("<SEND_%d>: sending messages of length greater than %d will be splited\n", sender->send_id, FRAME_PAYLOAD_SIZE);
         }
         else
         {
+            //加入字符串没有过长，不用切分，直接封装进拆分消息列表里
+            ll_append_node(&sender->splitlist, (void *)outgoing_cmd);
+        }
+        int splitlist_length = ll_get_length(sender->splitlist);
+        while(splitlist_length>0){
+            //如果缓冲区满了，消息不能发送，在队列里死等，直到发送缓冲区有空间
+            while(sendBufferFull(sender) == -1);
             //This is probably ONLY one step you want
-            Frame * outgoing_frame = (Frame *) malloc (sizeof(Frame));
-            strcpy(outgoing_frame->data, outgoing_cmd->message);
-            char ack = 0;
+            LLnode *splitNode = ll_pop_node(&sender->splitlist);
+            --splitlist_length;
+            Cmd *splitNode_cmd = (Cmd *)splitNode->value;
             //填充发送帧的信息,添加了冗余码
+            Frame * outgoing_frame = (Frame *) malloc (sizeof(Frame));
+            strcpy(outgoing_frame->data, splitNode_cmd->message);
+            char ack = 0;
             outgoing_frame->sourceId = outgoing_cmd->src_id;
             outgoing_frame->destinationId = outgoing_cmd->dst_id;
-            outgoing_frame->seq = messageSeq++;
+            outgoing_frame->seq = (sender->messageSeq)++;
             outgoing_frame->ack = ack;
             char * outgoing_str = convert_frame_to_char(outgoing_frame);
             uint16_t crc = crc16(outgoing_str,MAX_FRAME_SIZE-2);
             outgoing_frame->crc = crc;
-
+            print_frame(outgoing_frame);
             //At this point, we don't need the outgoing_cmd
             free(outgoing_cmd->message);
             free(outgoing_cmd);
@@ -150,7 +159,6 @@ void handle_input_cmds(Sender * sender,
             Timeout *timeout = (Timeout*)malloc(sizeof(Timeout));
             calculate_timeout(timeout);
             intoSendBuffer(sender,timeout,outgoing_frame);
-
             //Convert the message to the outgoing_charbuf
             char * outgoing_charbuf = convert_frame_to_char(outgoing_frame);
             ll_append_node(outgoing_frames_head_ptr,
