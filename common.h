@@ -15,10 +15,10 @@
 
 #define MAX_COMMAND_LENGTH 16
 #define AUTOMATED_FILENAME 512
-#define WINDOW_SIZE 8;
+//缓冲区最大长度是8
+#define MAX_BUFFER_LENGTH 8
 typedef struct timeval Timeout;
-//LAR最近接收到的确认帧,LFS最近发送的帧
-//NFE期待的下一帧的序号，RWS接收窗口大小
+
 //System configuration information
 struct SysConfig_t
 {
@@ -58,8 +58,39 @@ struct LLnode_t
 };
 typedef struct LLnode_t LLnode;
 
-//缓冲区最大长度是8
-#define MAX_BUFFER_LENGTH 8
+//帧大小最大是48个字节
+#define MAX_FRAME_SIZE 48
+//TODO: You should change this!
+//Remember, your frame can be AT MOST 48 bytes!
+#define FRAME_PAYLOAD_SIZE 39   //帧的有效负载
+//帧的结构
+struct Frame_t
+{
+    char data[FRAME_PAYLOAD_SIZE+1]; //帧的内容装在数组里面，留一个字节给字符串末尾标识\0
+    uint8_t seq; //顺序号
+    uint8_t ack; //确认号 0是发送帧，1是确认接受帧，2是坏包，3是重发发送帧
+    uint16_t sourceId; //源地址
+    uint16_t destinationId; //目的地址uint16_t
+    uint16_t crc; //crc冗余码
+};
+typedef struct Frame_t Frame;
+
+struct Receive_Frame_Info{
+    Frame *rframe;
+    uint8_t Status; //0代表可以用，1代表接收已确认，2代表发送已确认
+};
+typedef struct Receive_Frame_Info recInfo;
+
+//LAR最近接收到的确认帧,LFS最近发送的帧
+//NFE期待的下一帧的序号，RWS接收窗口大小
+//接受窗口
+struct Window_Receiver{
+    uint8_t NFE; //NFE期待的下一帧的序号
+    uint8_t RWS; //RWS接收窗口大小
+    recInfo buffer[MAX_BUFFER_LENGTH];
+};
+typedef struct Window_Receiver rWindow;
+
 //Receiver and sender data structures
 struct Receiver_t
 {
@@ -72,7 +103,24 @@ struct Receiver_t
     pthread_cond_t buffer_cv;
     LLnode* input_framelist_head;
     uint16_t recv_id;
+    rWindow *window;
 };
+
+//缓冲在窗口里的帧格式，包含了帧和时间
+struct Send_Frame_Info{
+    Frame *sframe;
+    Timeout* timeout;
+    uint8_t Status; //0代表可以用，1代表接收已确认，2代表发送已确认
+};
+typedef struct Send_Frame_Info sendInfo;
+
+//发送窗口(缓冲区)
+struct Window_Sender{
+    uint8_t LAR; //LAR最近接收到的确认帧
+    uint8_t LFS; //LFS最近发送的帧
+    sendInfo buffer[MAX_BUFFER_LENGTH]; //缓冲区数组
+};
+typedef struct Window_Sender sWindow;
 
 struct Sender_t
 {
@@ -92,6 +140,7 @@ struct Sender_t
     LLnode * input_framelist_head;
     //发送id
     uint16_t send_id;
+    sWindow *window;
 };
 
 enum SendFrame_DstType 
@@ -102,30 +151,6 @@ enum SendFrame_DstType
 
 typedef struct Sender_t Sender;
 typedef struct Receiver_t Receiver;
-
-//帧大小最大是48个字节
-#define MAX_FRAME_SIZE 48
-//TODO: You should change this!
-//Remember, your frame can be AT MOST 48 bytes!
-#define FRAME_PAYLOAD_SIZE 39   //帧的有效负载
-//帧的结构
-struct Frame_t
-{
-    char data[FRAME_PAYLOAD_SIZE+1]; //帧的内容装在数组里面
-    uint8_t seq; //顺序号
-    uint8_t ack; //确认号 0是发送帧，1是确认接受帧，2是坏包，3是重发发送帧
-    uint16_t sourceId; //源地址
-    uint16_t destinationId; //目的地址uint16_t
-    uint16_t crc; //crc冗余码
-};
-typedef struct Frame_t Frame;
-
-//滑动窗口
-struct Windows{
-    LLnode * windows;
-};
-typedef struct Windows Window;
-
 
 //Declare global variables here
 //DO NOT CHANGE: 

@@ -7,7 +7,12 @@ void init_sender(Sender * sender, int id)
     sender->input_cmdlist_head = NULL;
     sender->input_framelist_head = NULL;
     //初始化发送缓冲区
-    //sender->buffer_S = (Frame*)malloc(sizeof(Frame)*MAX_FRAME_SIZE);
+    sender->window = (sWindow*)malloc(sizeof(sWindow));
+    sender->window->LAR = -1; //初始化LAR
+    sender->window->LFS = -1; //初始化LFS
+    for(int i=0;i<MAX_BUFFER_LENGTH;++i){
+        ((sender->window->buffer)+i)->Status = 0; //刚开始缓冲区每一个窗口都是0，代表可以填充数据发送
+    }
 }
 
 struct timeval * sender_get_next_expiring_timeval(Sender * sender)
@@ -44,13 +49,27 @@ void handle_incoming_acks(Sender * sender,
             free(incoming_frame_Char);
             continue;
         }
+
         //接收方要求重传需要为seq的帧
         if(incoming_frame->ack == 2){
             //重传
+
         }
 
-        //这个确认帧对应的帧成功发送，窗口开始滑动
+        //这个确认帧对应的帧成功发送，释放缓冲区空间，将这个格子标志为0，窗口开始滑动
+        if(incoming_frame->ack == 1){
+            sendInfo* bufferFrame = searchSendBuffer(incoming_frame->seq,sender);
+            //print_frame(bufferFrame->sframe);
+            //fprintf(stderr,"%ld  %ld",bufferFrame->timeout->tv_sec,bufferFrame->timeout->tv_usec);
+            bufferFrame->Status = 0;
+            //释放这个指针指向的帧的时间戳的内存，这个指针还可以下一次赋值指向
+            free(bufferFrame->sframe);
+            free(bufferFrame->timeout);
 
+            //窗口标志位滑动
+
+
+        }
 
 
         free(incoming_acks);
@@ -76,9 +95,11 @@ void handle_input_cmds(Sender * sender,
     //    3) Set up the frame according to the sliding window protocol
     //    4) Compute CRC and add CRC to Frame
 
+    //如果缓冲区满了，消息不能发送，在队列里死等，直到发送缓冲区有空间
+    while(sendBufferFull(sender) == -1);
+
     int input_cmd_length = ll_get_length(sender->input_cmdlist_head);
     
-        
     //Recheck the command queue length to see if stdin_thread dumped a command on us
     input_cmd_length = ll_get_length(sender->input_cmdlist_head);
     int messageSeq = 0;
@@ -102,6 +123,7 @@ void handle_input_cmds(Sender * sender,
         int msg_length = strlen(outgoing_cmd->message);
         if (msg_length > MAX_FRAME_SIZE)
         {
+            //ll_split_head(head_ptr,FRAME_PAYLOAD_SIZE);
             //Do something about messages that exceed the frame size  假如信息过长，要切分
             printf("<SEND_%d>: sending messages of length greater than %d is not implemented\n", sender->send_id, MAX_FRAME_SIZE);
         }
@@ -125,13 +147,15 @@ void handle_input_cmds(Sender * sender,
             free(outgoing_cmd);
 
             //讲时间和帧一起放入缓冲区
-            Timeout *timeout = get_timeout();
+            Timeout *timeout = (Timeout*)malloc(sizeof(Timeout));
+            calculate_timeout(timeout);
+            intoSendBuffer(sender,timeout,outgoing_frame);
 
             //Convert the message to the outgoing_charbuf
             char * outgoing_charbuf = convert_frame_to_char(outgoing_frame);
             ll_append_node(outgoing_frames_head_ptr,
                            outgoing_charbuf);
-            free(outgoing_frame);
+            //free(outgoing_frame); 先别释放，在缓冲区里
         }
     }   
 }

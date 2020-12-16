@@ -109,15 +109,13 @@ long timeval_usecdiff(struct timeval *start_time,
 }
 
 //获取当前时间，并且加一毫秒
-Timeout *get_timeout(){
-    Timeout *timeout = (Timeout *)malloc(sizeof(Timeout));
+void calculate_timeout(struct timeval * timeout){
     gettimeofday(timeout,NULL);
     timeout->tv_usec += 100000;
     if (timeout->tv_usec >= 1000000){
         timeout->tv_sec++;
         timeout->tv_usec -= 1000000;
     }
-    return timeout;
 }
 
 
@@ -205,6 +203,88 @@ void print_frame(Frame* frame)
     fprintf(stderr, "#frame--------\n");
 }
 
-void IntoBuffer(Timeout *timeout, Frame *frame){
-    
+void intoSendBuffer(Sender * sender,Timeout *timeout, Frame *frame){
+    //找到空闲缓冲区空间
+    int freepos = sendBufferFull(sender);
+    if(freepos == -1) fprintf(stderr,"Can't find a free position in buffer");
+    ((sender->window->buffer)+freepos)->timeout = timeout;
+    ((sender->window->buffer)+freepos)->sframe = frame;
+    //print_frame(((sender->window->buffer)+freepos)->sframe);
+    //fprintf(stderr,"%ld  %ld",((sender->window->buffer)+freepos)->timeout->tv_sec,((sender->window->buffer)+freepos)->timeout->tv_usec);
+}
+
+void intoRecBuffer(Receiver* receiver, Frame *frame){
+    int freepos = recBufferFull(receiver);
+    if(freepos == -1) fprintf(stderr,"Can't find a free position in buffer");
+    ((receiver->window->buffer)+freepos)->rframe = frame;
+}
+
+int sendBufferFull(Sender* sender){
+    for(int i=0;i<MAX_BUFFER_LENGTH;++i){
+        if(((sender->window->buffer)+i)->Status == 0){
+            return i;
+        }
+    }
+    return -1;
+}
+
+sendInfo* searchSendBuffer(uint8_t seq,Sender *sender){
+    int pos = -1;
+    for(int i=0;i<MAX_BUFFER_LENGTH;++i){
+        if(((sender->window->buffer)+i)->sframe->seq == seq){
+            pos = i;
+            break;
+        }
+    }
+    return (sender->window->buffer)+pos;
+}
+
+int recBufferFull(Receiver* receiver){
+    for(int i=0;i<MAX_BUFFER_LENGTH;++i){
+        if(((receiver->window->buffer)+i)->Status == 0){
+            return i;
+        }
+    }
+    return -1;
+}
+
+recInfo* searchRecBuffer(uint8_t seq,Receiver *receiver){
+    int pos = -1;
+    for(int i=0;i<MAX_BUFFER_LENGTH;++i){
+        if(((receiver->window->buffer)+i)->rframe->seq == seq){
+            pos = i;
+            break;
+        }
+    }
+    if(pos == -1){
+        fprintf(stderr,"Can't find a free position in buffer");
+    }
+    return (receiver->window->buffer)+pos;
+}
+
+int judgeRevBufferExit(uint8_t seq,Receiver* receiver){
+    for(int i=0;i<MAX_BUFFER_LENGTH;++i){
+        if(seq == ((receiver->window->buffer)+i)->rframe->seq)
+            return 1;
+    }
+    return 0;
+}
+
+void ll_split_head(LLnode **head_ptr,int payload_size){
+    if(head_ptr == NULL|| *head_ptr == NULL) return;
+    LLnode* head = *head_ptr;
+    Cmd * head_cmd = (Cmd*)head->value;
+    char* msg = head_cmd->message;
+    if(strlen(msg)<payload_size) return;
+    int i;
+    LLnode* curr;
+    LLnode* next;
+    Cmd * next_cmd;
+    curr = head;
+    for(i=payload_size;i<strlen(msg);i+=payload_size){
+        char* cmd_msg = (char*)malloc((cut_size+1)*sizeof(char));
+        memset(cmd_msg,0,(payload_size+1)*sizeof(char));
+        strncpy(cmd_msg,msg+i,payload_size);
+    }
+    msg[payload_size] = '\0';
 }

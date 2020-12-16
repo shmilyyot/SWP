@@ -7,7 +7,12 @@ void init_receiver(Receiver * receiver,
     receiver->recv_id = id;
     receiver->input_framelist_head = NULL;
     //初始化接收缓冲区
-    //receiver->buffer_R = (Frame *)malloc(sizeof(Frame)*MAX_FRAME_SIZE); 
+    receiver->window = (rWindow*)malloc(sizeof(sWindow));
+    receiver->window->NFE = -1;
+    receiver->window->RWS = -1;
+    for (int i=0;i<MAX_BUFFER_LENGTH;++i){
+        ((receiver->window->buffer)+i)->Status = 0;
+    }
 }
 
 //处理到达的信息
@@ -20,10 +25,10 @@ void handle_incoming_msgs(Receiver * receiver,
     //    3) Check whether the frame is corrupted
     //    4) Check whether the frame is for this receiver
     //    5) Do sliding window protocol for sender/receiver pair
-
     int incoming_msgs_length = ll_get_length(receiver->input_framelist_head);
     while (incoming_msgs_length > 0)
     {
+        while (recBufferFull(receiver) == -1);
         //Pop a node off the front of the link list and update the count
         //从链表里取结点，这个结点不是帧，只是包含了消息
         LLnode * ll_inmsg_node = ll_pop_node(&receiver->input_framelist_head);
@@ -31,7 +36,6 @@ void handle_incoming_msgs(Receiver * receiver,
         --incoming_msgs_length; //好像可以优化成--，再次获取长度效率太低
         //incoming_msgs_length = ll_get_length(receiver->input_framelist_head);
 
-        //校验冗余码
         //DUMMY CODE: Print the raw_char_buf
         //NOTE: You should not blindly print messages!
         //      Ask yourself: Is this message really for me?
@@ -42,6 +46,7 @@ void handle_incoming_msgs(Receiver * receiver,
         char * raw_char_buf = (char *) ll_inmsg_node->value;
         //把结点里的消息转为帧
         Frame *inframe = convert_char_to_frame(raw_char_buf);
+        //校验冗余码
         //如果是非目标帧或者帧损坏，直接丢弃
         if(is_corrupted(raw_char_buf,MAX_FRAME_SIZE)==1){
             fprintf(stderr, "Error in finding the frame is corrupted!");
@@ -57,10 +62,22 @@ void handle_incoming_msgs(Receiver * receiver,
             free(inframe);
             continue;
         }
+        //这里有bug，会内存异常
+        //如果是重复收到的包，也丢弃
+        // if(judgeRevBufferExit(inframe->seq,receiver)==1){
+        //     fprintf(stderr, "This Frame has already been taken.");
+        //     free(ll_inmsg_node);
+        //     free(raw_char_buf);
+        //     free(inframe);
+        //     continue;
+        // }
+        //正确接收到了包，放入缓冲区
+        //recInfo* bufferFrame = searchRecBuffer(inframe->seq,receiver);
+        intoRecBuffer(receiver,inframe);
+        //print_frame(receiver->window->buffer->rframe);
         //打印出来就算接收到了
         printf("<RECV_%d>:[%s]\n", receiver->recv_id, inframe->data);
 
-        //只有正确接收确认的帧才会发确认报文
         //填充确认报文
         Frame * outframe = (Frame *) malloc(sizeof(Frame));
         memset(outframe->data,0,40*sizeof(char));
