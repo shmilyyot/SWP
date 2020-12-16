@@ -282,3 +282,5 @@ void ll_split_head(Sender* sender, Cmd * head_ptr,int payload_size){
         ll_append_node(&sender->splitlist, (void *)cmd_msg);
     }
 }
+
+//测试私人账户
