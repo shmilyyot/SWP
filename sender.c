@@ -121,10 +121,9 @@ void handle_input_cmds(Sender * sender,
         int msg_length = strlen(outgoing_cmd->message);
         if (msg_length > MAX_FRAME_SIZE)
         {
-
+            fprintf(stderr,"<SEND_%d>: sending messages of length greater than %d will be splited\n", sender->send_id, FRAME_PAYLOAD_SIZE);
             ll_split_head(sender,outgoing_cmd,FRAME_PAYLOAD_SIZE);
             //Do something about messages that exceed the frame size  假如信息过长，要切分
-            printf("<SEND_%d>: sending messages of length greater than %d will be splited\n", sender->send_id, FRAME_PAYLOAD_SIZE);
         }
         else
         {
@@ -132,16 +131,17 @@ void handle_input_cmds(Sender * sender,
             ll_append_node(&sender->splitlist, (void *)outgoing_cmd);
         }
         int splitlist_length = ll_get_length(sender->splitlist);
+        fprintf(stderr,"%d\n",splitlist_length);
         while(splitlist_length>0){
             //如果缓冲区满了，消息不能发送，在队列里死等，直到发送缓冲区有空间
             while(sendBufferFull(sender) == -1);
             //This is probably ONLY one step you want
             LLnode *splitNode = ll_pop_node(&sender->splitlist);
             --splitlist_length;
-            Cmd *splitNode_cmd = (Cmd *)splitNode->value;
             //填充发送帧的信息,添加了冗余码
             Frame * outgoing_frame = (Frame *) malloc (sizeof(Frame));
-            strcpy(outgoing_frame->data, splitNode_cmd->message);
+            strcpy(outgoing_frame->data, (char *)splitNode->value);
+            free(splitNode);
             char ack = 0;
             outgoing_frame->sourceId = outgoing_cmd->src_id;
             outgoing_frame->destinationId = outgoing_cmd->dst_id;
@@ -150,10 +150,6 @@ void handle_input_cmds(Sender * sender,
             char * outgoing_str = convert_frame_to_char(outgoing_frame);
             uint16_t crc = crc16(outgoing_str,MAX_FRAME_SIZE-2);
             outgoing_frame->crc = crc;
-            print_frame(outgoing_frame);
-            //At this point, we don't need the outgoing_cmd
-            free(outgoing_cmd->message);
-            free(outgoing_cmd);
 
             //讲时间和帧一起放入缓冲区
             Timeout *timeout = (Timeout*)malloc(sizeof(Timeout));
@@ -165,6 +161,9 @@ void handle_input_cmds(Sender * sender,
                            outgoing_charbuf);
             //free(outgoing_frame); 先别释放，在缓冲区里
         }
+        //At this point, we don't need the outgoing_cmd
+        free(outgoing_cmd->message);
+        free(outgoing_cmd);
     }   
 }
 

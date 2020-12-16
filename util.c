@@ -273,12 +273,12 @@ int judgeRevBufferExit(uint8_t seq,Receiver* receiver){
 void ll_split_head(Sender* sender, Cmd * head_ptr,int payload_size){
     if(head_ptr == NULL) return;
     char* msg = head_ptr->message;
-    if(strlen(msg)<=payload_size) return;
-    for(int i=0;i<strlen(msg);i+=payload_size){
-        char* cmd_msg = (char*)malloc((payload_size+1)*sizeof(char));
-        memset(cmd_msg,0,(payload_size+1)*sizeof(char));
-        strncpy(cmd_msg,msg+i,payload_size);
-        cmd_msg[payload_size] = '\0';
+    int cutsize = payload_size;
+    for(int i=0;i<(int)strlen(msg);i+=payload_size){
+        if((int)strlen(msg)-i<payload_size) cutsize = (int)strlen(msg)-i;
+        char* cmd_msg = (char*)malloc((cutsize+1)*sizeof(char));
+        strncpy(cmd_msg,msg+i,cutsize);
+        cmd_msg[cutsize] = '\0';
         ll_append_node(&sender->splitlist, (void *)cmd_msg);
     }
 }

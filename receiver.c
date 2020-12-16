@@ -46,7 +46,7 @@ void handle_incoming_msgs(Receiver * receiver,
         char * raw_char_buf = (char *) ll_inmsg_node->value;
         //把结点里的消息转为帧
         Frame *inframe = convert_char_to_frame(raw_char_buf);
-        print_frame(inframe);
+        //print_frame(inframe);
         //校验冗余码
         //如果是非目标帧或者帧损坏，直接丢弃
         if(is_corrupted(raw_char_buf,MAX_FRAME_SIZE)==1){
