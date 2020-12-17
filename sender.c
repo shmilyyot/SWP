@@ -8,8 +8,8 @@ void init_sender(Sender * sender, int id)
     sender->input_framelist_head = NULL;
     //初始化发送缓冲区
     sender->window = (sWindow*)malloc(sizeof(sWindow));
-    sender->window->LAR = -1; //初始化LAR
-    sender->window->LFS = -1; //初始化LFS
+    sender->window->LAR = 0; //初始化LAR
+    sender->window->LFS = 0; //初始化LFS
     for(int i=0;i<MAX_BUFFER_LENGTH;++i){
         ((sender->window->buffer)+i)->Status = 0; //刚开始缓冲区每一个窗口都是0，代表可以填充数据发送
     }
@@ -51,35 +51,46 @@ void handle_incoming_acks(Sender * sender,
             free(incoming_frame_Char);
             continue;
         }
-        if(incoming_frame)
-
-        //接收方要求重传需要为seq的帧，
-        if(incoming_frame->ack == 2){
-            
-
-        }
 
         //这个确认帧对应的帧成功发送，释放缓冲区空间，将这个格子标志为0，窗口开始滑动
         if(incoming_frame->ack == 1){
-            //窗口标志位滑动
-            //检查这个包之前的包有没有正确接收确认报文
-            int seqOrderLength = (int)((incoming_frame->seq)-(sender->window->LAR));
-            if(seqOrderLength>1){
-                //没收到某些帧的确认报文，让发送方超时重传这些帧
-                //窗口不更新,让后面的帧继续缓存着，直到按序接收到这个确认报文
-            }else{
+            //这个ack必须在确认窗口里(用来排除因为网络拥塞而超时到达的第一次ack)
+            if((incoming_frame->seq)>=(sender->window->LAR)){
+                //窗口标志位滑动
+                //检查这个确认报文是否提前到达
+                int seqOrderLength = (int)((incoming_frame->seq)-(sender->window->LAR));
                 sendInfo* bufferFrame = searchSendBuffer(incoming_frame->seq,sender);
-                print_frame(incoming_frame);
-                //fprintf(stderr,"%ld  %ld",bufferFrame->timeout->tv_sec,bufferFrame->timeout->tv_usec);
-                bufferFrame->Status = 0;
-                //释放这个指针指向的帧的时间戳的内存，这个指针还可以下一次赋值指向
-                free(bufferFrame->sframe);
-                free(bufferFrame->timeout);
-                sender->window->LAR = incoming_frame->seq; //最近接收到的帧LAR变成当前正确接收的帧的顺序号
+                if(seqOrderLength>1){
+                    //如果提前到达，把这个确认报文对应的缓存空间标志为接收已确认，不释放空间
+                    bufferFrame->Status = 1;
+                    //没收到某些帧的确认报文，让发送方超时重传这些帧
+                    //窗口不更新
+                }else{
+                    // print_frame(incoming_frame);
+                    // 释放这个指针指向的帧的时间戳的内存，这个指针还可以下一次赋值指向
+                    sender->window->LAR = incoming_frame->seq;
+                    bufferFrame->Status = 0;
+                    free(bufferFrame->sframe);
+                    free(bufferFrame->timeout);
+                    int count = 0;
+                    for(int i=0;i<MAX_BUFFER_LENGTH;++i){
+                        if(((sender->window->buffer)+i)->Status == 1){
+                            count++;
+                        }  
+                    }
+                    for(int i = 0;i<count;i++){
+                        for(int i=0;i<MAX_BUFFER_LENGTH;++i){
+                            if(((sender->window->buffer)+i)->sframe->seq == (sender->window->LAR)+1){
+                                sender->window->LAR = ((sender->window->buffer)+i)->sframe->seq;
+                                ((sender->window->buffer)+i)->Status = 0;
+                                free(((sender->window->buffer)+i)->sframe);
+                                free(((sender->window->buffer)+i)->timeout);
+                            }
+                        }
+                    }
+                }
             }
         }
-
-
         free(incoming_acks);
         free(incoming_frame);
         free(incoming_frame_Char);
@@ -134,7 +145,7 @@ void handle_input_cmds(Sender * sender,
         else
         {
             //加入字符串没有过长，不用切分，直接封装进拆分消息列表里
-            ll_append_node(&sender->splitlist, (void *)outgoing_cmd);
+            ll_append_node(&sender->splitlist, (void *)outgoing_cmd->message);
         }
         int splitlist_length = ll_get_length(sender->splitlist);
         while(splitlist_length>0){
@@ -164,8 +175,7 @@ void handle_input_cmds(Sender * sender,
             intoSendBuffer(sender,timeout,outgoing_frame);
 
             //成功放进缓冲区，即将发送消息，窗口开始滑动
-            sender->window->LFS = outgoing_frame->seq; //LFS最近发送的帧向右移动一格，LAR不用动
-
+            ++(sender->window->LFS); //LFS最近发送的帧向右移动一格，LAR不用动
             //Convert the message to the outgoing_charbuf
             char * outgoing_charbuf = convert_frame_to_char(outgoing_frame);
             ll_append_node(outgoing_frames_head_ptr,
@@ -187,6 +197,18 @@ void handle_timedout_frames(Sender * sender,
     //    1) Iterate through the sliding window protocol information you maintain for each receiver
     //    2) Locate frames that are timed out and add them to the outgoing frames
     //    3) Update the next timeout field on the outgoing frames
+    for(int i=0;i<MAX_BUFFER_LENGTH;++i){
+        if(((sender->window->buffer)+i)->Status == 2){
+            Timeout *timeout = (Timeout*)malloc(sizeof(Timeout));
+            calculate_timeout(timeout);
+            if((timeout->tv_sec)>(((sender->window->buffer)+i)->timeout->tv_sec)){
+                char * out_msg = convert_frame_to_char(((sender->window->buffer)+i)->sframe);
+                ll_append_node(outgoing_frames_head_ptr,(void *)out_msg);
+            }else if(1){
+
+            }
+        }
+    }
 }
 
 

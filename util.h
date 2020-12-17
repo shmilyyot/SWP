@@ -52,4 +52,6 @@ recInfo* searchRecBuffer(uint8_t seq,Receiver *receiver);
 int judgeRevBufferExit(uint8_t seq,Receiver* receiver);
 //字符串过长要切分
 void ll_split_head(Sender* sender,Cmd * outgoing_cmd,int payload_size);
+//查找确认已接收的报文，方便释放缓冲区并且移动LAR
+uint8_t checkLastedLAR(Sender* sender,uint8_t seq);
 #endif

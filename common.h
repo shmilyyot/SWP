@@ -68,7 +68,7 @@ struct Frame_t
 {
     char data[FRAME_PAYLOAD_SIZE+1]; //帧的内容装在数组里面，留一个字节给字符串末尾标识\0
     uint8_t seq; //顺序号
-    uint8_t ack; //确认号 0是发送帧，1是确认接受帧，2是坏包，3是重发发送帧
+    uint8_t ack; //确认号 0是发送帧，1是确认接受帧
     uint16_t sourceId; //源地址
     uint16_t destinationId; //目的地址uint16_t
     uint16_t crc; //crc冗余码
@@ -110,7 +110,7 @@ struct Receiver_t
 struct Send_Frame_Info{
     Frame *sframe;
     Timeout* timeout;
-    uint8_t Status; //0代表可以用，1代表接收已确认，2代表发送已确认
+    uint8_t Status; //0代表空闲空间，1代表发送已确认，2代表发送未确认
 };
 typedef struct Send_Frame_Info sendInfo;
 

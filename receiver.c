@@ -78,7 +78,7 @@ void handle_incoming_msgs(Receiver * receiver,
         intoRecBuffer(receiver,inframe);
         //print_frame(receiver->window->buffer->rframe);
         //打印出来就算接收到了
-        printf("<RECV_%d> successfully received:[%s]\n", receiver->recv_id, inframe->data);
+        printf("<RECV_%d>:[%s]\n", receiver->recv_id, inframe->data);
 
         //填充确认报文
         Frame * outframe = (Frame *) malloc(sizeof(Frame));

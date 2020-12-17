@@ -205,6 +205,7 @@ void print_frame(Frame* frame)
 
 void intoSendBuffer(Sender * sender,Timeout *timeout, Frame *frame){
     //找到空闲缓冲区空间
+    //使用缓冲区前，
     int freepos = sendBufferFull(sender);
     if(freepos == -1) fprintf(stderr,"Can't find a free position in buffer");
     ((sender->window->buffer)+freepos)->timeout = timeout;
@@ -284,4 +285,20 @@ void ll_split_head(Sender* sender, Cmd * head_ptr,int payload_size){
     }
 }
 
-//测试私人账户
+uint8_t checkLastedLAR(Sender* sender,uint8_t seq){
+    uint8_t max = seq;
+    int count = 0;
+    for(int i=0;i<MAX_BUFFER_LENGTH;++i){
+        if(((sender->window->buffer)+i)->Status == 1){
+            count++;
+        }
+    }
+    for(int i=0;i<count;++i){
+        for(int j=0;j<MAX_BUFFER_LENGTH;++j){
+            if(((sender->window->buffer)+j)->Status == 1 && ((sender->window->buffer)+j)->sframe->seq == max+1){
+                max = seq;
+            }
+        }
+    }
+    return max;
+}
