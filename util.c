@@ -209,6 +209,7 @@ void intoSendBuffer(Sender * sender,Timeout *timeout, Frame *frame){
     if(freepos == -1) fprintf(stderr,"Can't find a free position in buffer");
     ((sender->window->buffer)+freepos)->timeout = timeout;
     ((sender->window->buffer)+freepos)->sframe = frame;
+    ((sender->window->buffer)+freepos)->Status = 2;
     //print_frame(((sender->window->buffer)+freepos)->sframe);
     //fprintf(stderr,"%ld  %ld",((sender->window->buffer)+freepos)->timeout->tv_sec,((sender->window->buffer)+freepos)->timeout->tv_usec);
 }
@@ -231,9 +232,9 @@ int sendBufferFull(Sender* sender){
 sendInfo* searchSendBuffer(uint8_t seq,Sender *sender){
     int pos = -1;
     for(int i=0;i<MAX_BUFFER_LENGTH;++i){
+        //print_frame(((sender->window->buffer)+i)->sframe);
         if(((sender->window->buffer)+i)->sframe->seq == seq){
-            pos = i;
-            break;
+            return (sender->window->buffer)+i;
         }
     }
     return (sender->window->buffer)+pos;

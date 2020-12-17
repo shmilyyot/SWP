@@ -32,51 +32,57 @@ void handle_incoming_acks(Sender * sender,
         //获取接收到的ack
         LLnode * incoming_acks = ll_pop_node(&sender->input_framelist_head);
         --incoming_acks_length;
-        // char * incoming_frame_Char = (char *)incoming_acks->value;
-        // Frame * incoming_frame = convert_char_to_frame(incoming_frame_Char);
+        char * incoming_frame_Char = (char *)incoming_acks->value;
+        Frame * incoming_frame = convert_char_to_frame(incoming_frame_Char);
 
-        // //如果确认包损坏，直接不管，等下一个确认包过来
-        // if(is_corrupted(incoming_frame_Char,MAX_FRAME_SIZE)==1){
-        //     fprintf(stderr, "Error in finding the frame is corrupted!");
-        //     free(incoming_acks);
-        //     free(incoming_frame);
-        //     free(incoming_frame_Char);
-        //     continue;
-        // }
-        // //如果这个帧不是这个发送者的,直接不管
-        // if(incoming_frame->destinationId != sender->send_id){
-        //     fprintf(stderr, "This Frame is not for this sender.");
-        //     free(incoming_acks);
-        //     free(incoming_frame);
-        //     free(incoming_frame_Char);
-        //     continue;
-        // }
+        //如果确认包损坏，直接不管。因为有超时重传，接收方的确认报文损坏或者丢失，重传之后对面会再发一次确认包的
+        if(is_corrupted(incoming_frame_Char,MAX_FRAME_SIZE)==1){
+            fprintf(stderr, "<SEND_%d> :Error in finding the frame is corrupted!",incoming_frame->destinationId);
+            free(incoming_acks);
+            free(incoming_frame);
+            free(incoming_frame_Char);
+            continue;
+        }
+        //如果这个帧不是这个发送者的,直接不管
+        if(incoming_frame->destinationId != sender->send_id){
+            fprintf(stderr, "<SEND_%d> :This Frame is not for this sender.",incoming_frame->destinationId);
+            free(incoming_acks);
+            free(incoming_frame);
+            free(incoming_frame_Char);
+            continue;
+        }
+        if(incoming_frame)
 
-        // //接收方要求重传需要为seq的帧
-        // if(incoming_frame->ack == 2){
-        //     //重传
+        //接收方要求重传需要为seq的帧，
+        if(incoming_frame->ack == 2){
+            
 
-        // }
+        }
 
-        // //这个确认帧对应的帧成功发送，释放缓冲区空间，将这个格子标志为0，窗口开始滑动
-        // if(incoming_frame->ack == 1){
-        //     sendInfo* bufferFrame = searchSendBuffer(incoming_frame->seq,sender);
-        //     //print_frame(bufferFrame->sframe);
-        //     //fprintf(stderr,"%ld  %ld",bufferFrame->timeout->tv_sec,bufferFrame->timeout->tv_usec);
-        //     bufferFrame->Status = 0;
-        //     //释放这个指针指向的帧的时间戳的内存，这个指针还可以下一次赋值指向
-        //     free(bufferFrame->sframe);
-        //     free(bufferFrame->timeout);
+        //这个确认帧对应的帧成功发送，释放缓冲区空间，将这个格子标志为0，窗口开始滑动
+        if(incoming_frame->ack == 1){
+            //窗口标志位滑动
+            //检查这个包之前的包有没有正确接收确认报文
+            int seqOrderLength = (int)((incoming_frame->seq)-(sender->window->LAR));
+            if(seqOrderLength>1){
+                //没收到某些帧的确认报文，让发送方超时重传这些帧
+                //窗口不更新,让后面的帧继续缓存着，直到按序接收到这个确认报文
+            }else{
+                sendInfo* bufferFrame = searchSendBuffer(incoming_frame->seq,sender);
+                print_frame(incoming_frame);
+                //fprintf(stderr,"%ld  %ld",bufferFrame->timeout->tv_sec,bufferFrame->timeout->tv_usec);
+                bufferFrame->Status = 0;
+                //释放这个指针指向的帧的时间戳的内存，这个指针还可以下一次赋值指向
+                free(bufferFrame->sframe);
+                free(bufferFrame->timeout);
+                sender->window->LAR = incoming_frame->seq; //最近接收到的帧LAR变成当前正确接收的帧的顺序号
+            }
+        }
 
-        //     //窗口标志位滑动
 
-
-        // }
-
-
-        // free(incoming_acks);
-        // free(incoming_frame);
-        // free(incoming_frame_Char);
+        free(incoming_acks);
+        free(incoming_frame);
+        free(incoming_frame_Char);
     }
     //TODO: Suggested steps for handling incoming ACKs
     //    1) Dequeue the ACK from the sender->input_framelist_head
@@ -131,9 +137,10 @@ void handle_input_cmds(Sender * sender,
             ll_append_node(&sender->splitlist, (void *)outgoing_cmd);
         }
         int splitlist_length = ll_get_length(sender->splitlist);
-        fprintf(stderr,"%d\n",splitlist_length);
         while(splitlist_length>0){
             //如果缓冲区满了，消息不能发送，在队列里死等，直到发送缓冲区有空间
+            //只要缓冲区没满，不用担心窗口标识符可能越界，一定能发送，LFS肯定能自增
+            //发送消息时无需考虑LAR
             while(sendBufferFull(sender) == -1);
             //This is probably ONLY one step you want
             LLnode *splitNode = ll_pop_node(&sender->splitlist);
@@ -151,15 +158,20 @@ void handle_input_cmds(Sender * sender,
             uint16_t crc = crc16(outgoing_str,MAX_FRAME_SIZE-2);
             outgoing_frame->crc = crc;
 
-            //讲时间和帧一起放入缓冲区
+            //将时间和帧一起放入缓冲区
             Timeout *timeout = (Timeout*)malloc(sizeof(Timeout));
             calculate_timeout(timeout);
             intoSendBuffer(sender,timeout,outgoing_frame);
+
+            //成功放进缓冲区，即将发送消息，窗口开始滑动
+            sender->window->LFS = outgoing_frame->seq; //LFS最近发送的帧向右移动一格，LAR不用动
+
             //Convert the message to the outgoing_charbuf
             char * outgoing_charbuf = convert_frame_to_char(outgoing_frame);
             ll_append_node(outgoing_frames_head_ptr,
                            outgoing_charbuf);
             //free(outgoing_frame); 先别释放，在缓冲区里
+
         }
         //At this point, we don't need the outgoing_cmd
         free(outgoing_cmd->message);

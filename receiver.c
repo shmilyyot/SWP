@@ -50,21 +50,21 @@ void handle_incoming_msgs(Receiver * receiver,
         //校验冗余码
         //如果是非目标帧或者帧损坏，直接丢弃
         if(is_corrupted(raw_char_buf,MAX_FRAME_SIZE)==1){
-            fprintf(stderr, "Error in finding the frame is corrupted!");
+            fprintf(stderr, "<RECV_%d>:Error in finding the frame is corrupted!\n",(int)receiver->recv_id);
             free(ll_inmsg_node);
             free(raw_char_buf);
             free(inframe);
             continue;
         }
         if(inframe->destinationId != receiver->recv_id){
-            fprintf(stderr, "This Frame is not for this receiver.");
+            fprintf(stderr, "<RECV_%d>:This Frame is not for this receiver.\n",(int)receiver->recv_id);
             free(ll_inmsg_node);
             free(raw_char_buf);
             free(inframe);
             continue;
         }
         //这里有bug，会内存异常
-        //如果是重复收到的包，也丢弃
+        //如果是重复收到的包，检查缓冲区里有没有，已有的话再发一次确认报文  
         // if(judgeRevBufferExit(inframe->seq,receiver)==1){
         //     fprintf(stderr, "This Frame has already been taken.");
         //     free(ll_inmsg_node);
@@ -74,10 +74,11 @@ void handle_incoming_msgs(Receiver * receiver,
         // }
         //正确接收到了包，放入缓冲区
         //recInfo* bufferFrame = searchRecBuffer(inframe->seq,receiver);
+        while( recBufferFull(receiver) == -1);
         intoRecBuffer(receiver,inframe);
         //print_frame(receiver->window->buffer->rframe);
         //打印出来就算接收到了
-        printf("<RECV_%d>:[%s]\n", receiver->recv_id, inframe->data);
+        printf("<RECV_%d> successfully received:[%s]\n", receiver->recv_id, inframe->data);
 
         //填充确认报文
         Frame * outframe = (Frame *) malloc(sizeof(Frame));
@@ -90,6 +91,7 @@ void handle_incoming_msgs(Receiver * receiver,
         char* uCrcOutFrameChar = convert_frame_to_char(outframe);
         uint16_t crc = crc16(uCrcOutFrameChar,MAX_FRAME_SIZE-2);
         outframe->crc = crc;
+
         char* CrcOutFrameChar = convert_frame_to_char(outframe);
         //先注释，不然测试程序时无法exit结束任务
         //确认报文添加到发送队列
