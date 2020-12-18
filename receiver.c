@@ -59,18 +59,6 @@ void handle_incoming_msgs(Receiver * receiver,
             free(inframe);
             continue;
         }
-        //这里有bug，会内存异常
-        //如果是已经收到的包，丢弃 
-        // if(judgeRevBufferExit(inframe->seq,receiver)==1){
-        //     fprintf(stderr, "This Frame has already been taken.");
-        //     free(ll_inmsg_node);
-        //     free(raw_char_buf);
-        //     free(inframe);
-        //     continue;
-        // }
-        //正确接收到了包，放入缓冲区
-        //recInfo* bufferFrame = searchRecBuffer(inframe->seq,receiver);
-        //while( recBufferFull(receiver) == -1);
 
         //必须按序接收
         if(receiver->window->NFE == inframe->seq){
@@ -79,8 +67,6 @@ void handle_incoming_msgs(Receiver * receiver,
             intoRecBuffer(receiver,inframe);
             receiver->window->RWS--;
             receiver->window->NFE++;
-            //print_frame(receiver->window->buffer->rframe);
-            //打印出来就算接收到了
             printf("<RECV_%d>:[%s]\n", receiver->recv_id, inframe->data);
 
             //填充确认报文
@@ -94,7 +80,6 @@ void handle_incoming_msgs(Receiver * receiver,
             char* uCrcOutFrameChar = convert_frame_to_char(outframe);
             uint16_t crc = crc16(uCrcOutFrameChar,MAX_FRAME_SIZE-2);
             outframe->crc = crc;
-
             char* CrcOutFrameChar = convert_frame_to_char(outframe);
             //先注释，不然测试程序时无法exit结束任务
             //确认报文添加到发送队列
@@ -105,11 +90,31 @@ void handle_incoming_msgs(Receiver * receiver,
             free(outframe);
             free(uCrcOutFrameChar);
             free(ll_inmsg_node);
-        }else{
+        }else if(receiver->window->NFE < inframe->seq){
             //乱序的话不接收
             fprintf(stderr, "<RECV_%d>:Wrong packet receive order.\n",(int)receiver->recv_id);
             free(raw_char_buf);
             free(inframe);
+            free(ll_inmsg_node);
+        }else{
+            //小于NFE，代表收到了重复发送的帧，再发送ack
+            fprintf(stderr, "<RECV_%d>:This packet had been received.Resend ack\n",(int)receiver->recv_id);
+            Frame * outframe = (Frame *) malloc(sizeof(Frame));
+            memset(outframe->data,0,40*sizeof(char));
+            strcpy(outframe->data, inframe->data);
+            outframe->destinationId = inframe->sourceId;
+            outframe->sourceId = inframe->destinationId;
+            outframe->seq = inframe->seq;
+            outframe->ack = 2;
+            char* uCrcOutFrameChar = convert_frame_to_char(outframe);
+            uint16_t crc = crc16(uCrcOutFrameChar,MAX_FRAME_SIZE-2);
+            outframe->crc = crc;
+            char* CrcOutFrameChar = convert_frame_to_char(outframe);
+            ll_append_node(outgoing_frames_head_ptr,CrcOutFrameChar);
+            free(raw_char_buf);
+            free(inframe);
+            free(outframe);
+            free(uCrcOutFrameChar);
             free(ll_inmsg_node);
         }
     }

@@ -204,10 +204,12 @@ void handle_timedout_frames(Sender * sender,
     //         calculate_timeout(timeout);
     //         if((timeout->tv_sec)>(((sender->window->buffer)+i)->timeout->tv_sec)){
     //             char * out_msg = convert_frame_to_char(((sender->window->buffer)+i)->sframe);
+    //             gettimeofday(&(sender->window->buffer)+i)->timeout, NULL);
     //             ll_append_node(outgoing_frames_head_ptr,(void *)out_msg);
     //         }else if((timeout->tv_sec)==(((sender->window->buffer)+i)->timeout->tv_sec)){
     //             if((timeout->tv_usec)>((((sender->window->buffer)+i)->timeout->tv_usec))){
     //                 char * out_msg = convert_frame_to_char(((sender->window->buffer)+i)->sframe);
+    //                 gettimeofday(&(sender->window->buffer)+i)->timeout, NULL);
     //                 ll_append_node(outgoing_frames_head_ptr,(void *)out_msg);
     //             }
     //         }
@@ -248,12 +250,12 @@ void * run_sender(void * input_sender)
         gettimeofday(&curr_timeval, 
                      NULL);
 
-        //从毫秒精度手动将毫秒*1000，升级到纳秒精度 time_spec用来考虑什么时候唤醒线程
         //time_spec is a data structure used to specify when the thread should wake up
         //The time is specified as an ABSOLUTE (meaning, conceptually, you specify 9/23/2010 @ 1pm, wakeup)
         time_spec.tv_sec  = curr_timeval.tv_sec;
         time_spec.tv_nsec = curr_timeval.tv_usec * 1000;
 
+        //最近的过期时间，如果过期时间是null，默认休眠一毫秒，否则休眠过期时间和当前时间的间隔
         //Check for the next event we should handle 
         expiring_timeval = sender_get_next_expiring_timeval(sender);
 
