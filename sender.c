@@ -8,7 +8,7 @@ void init_sender(Sender * sender, int id)
     sender->input_framelist_head = NULL;
     //初始化发送缓冲区
     sender->window = (sWindow*)malloc(sizeof(sWindow));
-    sender->window->LAR = 0; //初始化LAR
+    sender->window->LAR = -1; //初始化LAR
     sender->window->LFS = 0; //初始化LFS
     for(int i=0;i<MAX_BUFFER_LENGTH;++i){
         ((sender->window->buffer)+i)->Status = 0; //刚开始缓冲区每一个窗口都是0，代表可以填充数据发送
@@ -55,40 +55,18 @@ void handle_incoming_acks(Sender * sender,
         //这个确认帧对应的帧成功发送，释放缓冲区空间，将这个格子标志为0，窗口开始滑动
         if(incoming_frame->ack == 1){
             //这个ack必须在确认窗口里(用来排除因为网络拥塞而超时到达的第一次ack)
-            if((incoming_frame->seq)>=(sender->window->LAR)){
-                //窗口标志位滑动
-                //检查这个确认报文是否提前到达
-                int seqOrderLength = (int)((incoming_frame->seq)-(sender->window->LAR));
-                sendInfo* bufferFrame = searchSendBuffer(incoming_frame->seq,sender);
-                if(seqOrderLength>1){
-                    //如果提前到达，把这个确认报文对应的缓存空间标志为接收已确认，不释放空间
-                    bufferFrame->Status = 1;
-                    //没收到某些帧的确认报文，让发送方超时重传这些帧
-                    //窗口不更新
-                }else{
-                    // print_frame(incoming_frame);
-                    // 释放这个指针指向的帧的时间戳的内存，这个指针还可以下一次赋值指向
-                    sender->window->LAR = incoming_frame->seq;
+            //当LAR为0时有问题
+            fprintf(stderr, "received ack %d \n", (int)incoming_frame->seq);
+            if((incoming_frame->seq)>(sender->window->LAR)){
+                for (uint8_t i = sender->window->LAR+1; i <= incoming_frame->seq;i++){
+                    sendInfo* bufferFrame = searchSendBuffer(i,sender);
                     bufferFrame->Status = 0;
                     free(bufferFrame->sframe);
                     free(bufferFrame->timeout);
-                    int count = 0;
-                    for(int i=0;i<MAX_BUFFER_LENGTH;++i){
-                        if(((sender->window->buffer)+i)->Status == 1){
-                            count++;
-                        }  
-                    }
-                    for(int i = 0;i<count;i++){
-                        for(int i=0;i<MAX_BUFFER_LENGTH;++i){
-                            if(((sender->window->buffer)+i)->sframe->seq == (sender->window->LAR)+1){
-                                sender->window->LAR = ((sender->window->buffer)+i)->sframe->seq;
-                                ((sender->window->buffer)+i)->Status = 0;
-                                free(((sender->window->buffer)+i)->sframe);
-                                free(((sender->window->buffer)+i)->timeout);
-                            }
-                        }
-                    }
                 }
+                sender->window->LAR = incoming_frame->seq;
+            }else{
+                fprintf(stderr, "<SEND_%d>:received an already free ack %d,drop it \n", incoming_frame->destinationId,incoming_frame->seq);
             }
         }
         free(incoming_acks);
@@ -108,6 +86,8 @@ void handle_incoming_acks(Sender * sender,
 void handle_input_cmds(Sender * sender,
                        LLnode ** outgoing_frames_head_ptr)
 {
+    //如果缓冲区满了，不用处理输入消息，直接去下一步，等下一个循环
+    if(sendBufferFull(sender) == -1) return;
     //TODO: Suggested steps for handling input cmd
     //    1) Dequeue the Cmd from sender->input_cmdlist_head
     //    2) Convert to Frame
@@ -138,7 +118,6 @@ void handle_input_cmds(Sender * sender,
         int msg_length = strlen(outgoing_cmd->message);
         if (msg_length > MAX_FRAME_SIZE)
         {
-            fprintf(stderr,"<SEND_%d>: sending messages of length greater than %d will be splited\n", sender->send_id, FRAME_PAYLOAD_SIZE);
             ll_split_head(sender,outgoing_cmd,FRAME_PAYLOAD_SIZE);
             //Do something about messages that exceed the frame size  假如信息过长，要切分
         }
@@ -152,7 +131,6 @@ void handle_input_cmds(Sender * sender,
             //如果缓冲区满了，消息不能发送，在队列里死等，直到发送缓冲区有空间
             //只要缓冲区没满，不用担心窗口标识符可能越界，一定能发送，LFS肯定能自增
             //发送消息时无需考虑LAR
-            while(sendBufferFull(sender) == -1);
             //This is probably ONLY one step you want
             LLnode *splitNode = ll_pop_node(&sender->splitlist);
             --splitlist_length;
@@ -193,28 +171,32 @@ void handle_input_cmds(Sender * sender,
 void handle_timedout_frames(Sender * sender,
                             LLnode ** outgoing_frames_head_ptr)
 {
+    Timeout *currtime =(Timeout*)malloc(sizeof(Timeout));
+    gettimeofday(currtime, NULL);
     //TODO: Suggested steps for handling timed out datagrams
     //    1) Iterate through the sliding window protocol information you maintain for each receiver
     //    2) Locate frames that are timed out and add them to the outgoing frames
     //    3) Update the next timeout field on the outgoing frames
-    //导致内存释放错误，暂时不知道为什么
-    // for(int i=0;i<MAX_BUFFER_LENGTH;++i){
-    //     if(((sender->window->buffer)+i)->Status == 2){
-    //         Timeout *timeout = (Timeout*)malloc(sizeof(Timeout));
-    //         calculate_timeout(timeout);
-    //         if((timeout->tv_sec)>(((sender->window->buffer)+i)->timeout->tv_sec)){
-    //             char * out_msg = convert_frame_to_char(((sender->window->buffer)+i)->sframe);
-    //             gettimeofday(&(sender->window->buffer)+i)->timeout, NULL);
-    //             ll_append_node(outgoing_frames_head_ptr,(void *)out_msg);
-    //         }else if((timeout->tv_sec)==(((sender->window->buffer)+i)->timeout->tv_sec)){
-    //             if((timeout->tv_usec)>((((sender->window->buffer)+i)->timeout->tv_usec))){
-    //                 char * out_msg = convert_frame_to_char(((sender->window->buffer)+i)->sframe);
-    //                 gettimeofday(&(sender->window->buffer)+i)->timeout, NULL);
-    //                 ll_append_node(outgoing_frames_head_ptr,(void *)out_msg);
-    //             }
-    //         }
-    //     }
-    // }
+    //有问题，可能是比较的问题
+    for (int i = 0; i < MAX_BUFFER_LENGTH;++i){
+        if(((sender->window->buffer) + i)->Status == 2){
+            //每个帧已经经过了0.1毫秒还没释放
+            Timeout *timeout = ((sender->window->buffer) + i)->timeout;
+            //如果发送帧比当前时间小，肯定超时了，因为发送时已经加了0.1毫秒，如果没有超时，一定会比0.1毫秒小的。
+            if(timeout->tv_sec < currtime->tv_sec){
+                fprintf(stderr, "Frame %d is timeout",(int)((sender->window->buffer) + i)->sframe->seq);
+                char * outgoing_msg = convert_frame_to_char(((sender->window->buffer) + i)->sframe);
+                ((sender->window->buffer) + i)->timeout = currtime;
+                ll_append_node(outgoing_frames_head_ptr,(void *)outgoing_msg);
+            }else if(timeout->tv_sec == currtime->tv_sec){
+                if(timeout->tv_usec < currtime->tv_usec){
+                    char * outgoing_msg = convert_frame_to_char(((sender->window->buffer) + i)->sframe);
+                    ((sender->window->buffer) + i)->timeout = currtime;
+                    ll_append_node(outgoing_frames_head_ptr,(void *)outgoing_msg);
+                }
+            }
+        }
+    }
 }
 
 

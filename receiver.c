@@ -83,6 +83,7 @@ void handle_incoming_msgs(Receiver * receiver,
             char* CrcOutFrameChar = convert_frame_to_char(outframe);
             //先注释，不然测试程序时无法exit结束任务
             //确认报文添加到发送队列
+            fprintf(stderr, "send ack %d \n", (int)outframe->seq);
             ll_append_node(outgoing_frames_head_ptr,CrcOutFrameChar);
             //Free raw_char_buf
             free(raw_char_buf);
@@ -97,7 +98,10 @@ void handle_incoming_msgs(Receiver * receiver,
             free(inframe);
             free(ll_inmsg_node);
         }else{
-            //小于NFE，代表收到了重复发送的帧，再发送ack
+            //有可能不需要了
+
+
+            //小于NFE，代表收到了重复发送的帧，重新发送一模一样的ack
             fprintf(stderr, "<RECV_%d>:This packet had been received.Resend ack\n",(int)receiver->recv_id);
             Frame * outframe = (Frame *) malloc(sizeof(Frame));
             memset(outframe->data,0,40*sizeof(char));
@@ -105,11 +109,12 @@ void handle_incoming_msgs(Receiver * receiver,
             outframe->destinationId = inframe->sourceId;
             outframe->sourceId = inframe->destinationId;
             outframe->seq = inframe->seq;
-            outframe->ack = 2;
+            outframe->ack = 1;
             char* uCrcOutFrameChar = convert_frame_to_char(outframe);
             uint16_t crc = crc16(uCrcOutFrameChar,MAX_FRAME_SIZE-2);
             outframe->crc = crc;
             char* CrcOutFrameChar = convert_frame_to_char(outframe);
+            fprintf(stderr, "send ack %d \n", (int)outframe->seq);
             ll_append_node(outgoing_frames_head_ptr,CrcOutFrameChar);
             free(raw_char_buf);
             free(inframe);

@@ -116,7 +116,7 @@ typedef struct Send_Frame_Info sendInfo;
 
 //发送窗口(缓冲区)
 struct Window_Sender{
-    uint8_t LAR; //LAR最近接收到的确认帧
+    int8_t LAR; //LAR最近接收到的确认帧
     uint8_t LFS; //LFS最近发送的帧
     sendInfo buffer[MAX_BUFFER_LENGTH]; //缓冲区数组
 };
