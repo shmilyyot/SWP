@@ -44,14 +44,11 @@ void intoSendBuffer(Sender* sender,Timeout *timeout, Frame *frame);
 void intoRecBuffer(Receiver* sender,Frame *frame);
 //判断缓冲区是否已满
 int sendBufferFull(Sender* sender);
-int recBufferFull(Receiver* receiver);
 //找到根据序列号对应缓冲区的帧
 sendInfo* searchSendBuffer(uint8_t seq,Sender *sender);
-recInfo* searchRecBuffer(uint8_t seq,Receiver *receiver);
-//判断这个帧是否在接收缓冲区已存在（防止确认报文丢失，重传了缓冲区已有的帧）
-int judgeRevBufferExit(uint8_t seq,Receiver* receiver);
 //字符串过长要切分
 void ll_split_head(Sender* sender,Cmd * outgoing_cmd,int payload_size);
 //查找确认已接收的报文，方便释放缓冲区并且移动LAR
 uint8_t checkLastedLAR(Sender* sender,uint8_t seq);
+void releaseRecBuffer(Receiver * receiver);
 #endif

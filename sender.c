@@ -189,7 +189,7 @@ void handle_input_cmds(Sender * sender,
     }   
 }
 
-//处理超时的帧
+//处理超时重传的帧
 void handle_timedout_frames(Sender * sender,
                             LLnode ** outgoing_frames_head_ptr)
 {
@@ -197,18 +197,22 @@ void handle_timedout_frames(Sender * sender,
     //    1) Iterate through the sliding window protocol information you maintain for each receiver
     //    2) Locate frames that are timed out and add them to the outgoing frames
     //    3) Update the next timeout field on the outgoing frames
-    for(int i=0;i<MAX_BUFFER_LENGTH;++i){
-        if(((sender->window->buffer)+i)->Status == 2){
-            Timeout *timeout = (Timeout*)malloc(sizeof(Timeout));
-            calculate_timeout(timeout);
-            if((timeout->tv_sec)>(((sender->window->buffer)+i)->timeout->tv_sec)){
-                char * out_msg = convert_frame_to_char(((sender->window->buffer)+i)->sframe);
-                ll_append_node(outgoing_frames_head_ptr,(void *)out_msg);
-            }else if(1){
-
-            }
-        }
-    }
+    //导致内存释放错误，暂时不知道为什么
+    // for(int i=0;i<MAX_BUFFER_LENGTH;++i){
+    //     if(((sender->window->buffer)+i)->Status == 2){
+    //         Timeout *timeout = (Timeout*)malloc(sizeof(Timeout));
+    //         calculate_timeout(timeout);
+    //         if((timeout->tv_sec)>(((sender->window->buffer)+i)->timeout->tv_sec)){
+    //             char * out_msg = convert_frame_to_char(((sender->window->buffer)+i)->sframe);
+    //             ll_append_node(outgoing_frames_head_ptr,(void *)out_msg);
+    //         }else if((timeout->tv_sec)==(((sender->window->buffer)+i)->timeout->tv_sec)){
+    //             if((timeout->tv_usec)>((((sender->window->buffer)+i)->timeout->tv_usec))){
+    //                 char * out_msg = convert_frame_to_char(((sender->window->buffer)+i)->sframe);
+    //                 ll_append_node(outgoing_frames_head_ptr,(void *)out_msg);
+    //             }
+    //         }
+    //     }
+    // }
 }
 
 

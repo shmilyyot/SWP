@@ -87,7 +87,7 @@ typedef struct Receive_Frame_Info recInfo;
 struct Window_Receiver{
     uint8_t NFE; //NFE期待的下一帧的序号
     uint8_t RWS; //RWS接收窗口大小
-    recInfo buffer[MAX_BUFFER_LENGTH];
+    LLnode *recvBuffer; //接收缓冲区
 };
 typedef struct Window_Receiver rWindow;
 

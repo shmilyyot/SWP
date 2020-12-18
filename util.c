@@ -216,9 +216,8 @@ void intoSendBuffer(Sender * sender,Timeout *timeout, Frame *frame){
 }
 
 void intoRecBuffer(Receiver* receiver, Frame *frame){
-    int freepos = recBufferFull(receiver);
-    if(freepos == -1) fprintf(stderr,"Can't find a free position in buffer");
-    ((receiver->window->buffer)+freepos)->rframe = frame;
+    char *inframe_char = convert_frame_to_char(frame);
+    ll_append_node(&receiver->window->recvBuffer, inframe_char);
 }
 
 int sendBufferFull(Sender* sender){
@@ -239,37 +238,6 @@ sendInfo* searchSendBuffer(uint8_t seq,Sender *sender){
         }
     }
     return (sender->window->buffer)+pos;
-}
-
-int recBufferFull(Receiver* receiver){
-    for(int i=0;i<MAX_BUFFER_LENGTH;++i){
-        if(((receiver->window->buffer)+i)->Status == 0){
-            return i;
-        }
-    }
-    return -1;
-}
-
-recInfo* searchRecBuffer(uint8_t seq,Receiver *receiver){
-    int pos = -1;
-    for(int i=0;i<MAX_BUFFER_LENGTH;++i){
-        if(((receiver->window->buffer)+i)->rframe->seq == seq){
-            pos = i;
-            break;
-        }
-    }
-    if(pos == -1){
-        fprintf(stderr,"Can't find a free position in buffer");
-    }
-    return (receiver->window->buffer)+pos;
-}
-
-int judgeRevBufferExit(uint8_t seq,Receiver* receiver){
-    for(int i=0;i<MAX_BUFFER_LENGTH;++i){
-        if(seq == ((receiver->window->buffer)+i)->rframe->seq)
-            return 1;
-    }
-    return 0;
 }
 
 void ll_split_head(Sender* sender, Cmd * head_ptr,int payload_size){
@@ -301,4 +269,12 @@ uint8_t checkLastedLAR(Sender* sender,uint8_t seq){
         }
     }
     return max;
+}
+
+void  releaseRecBuffer(Receiver * receiver){
+    //fprintf(stderr, "nihao\n");
+    while(receiver->window->recvBuffer!=NULL){
+        ll_pop_node(&receiver->window->recvBuffer);
+        receiver->window->RWS++;
+    }
 }

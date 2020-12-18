@@ -8,11 +8,8 @@ void init_receiver(Receiver * receiver,
     receiver->input_framelist_head = NULL;
     //初始化接收缓冲区
     receiver->window = (rWindow*)malloc(sizeof(sWindow));
-    receiver->window->NFE = -1;
-    receiver->window->RWS = -1;
-    for (int i=0;i<MAX_BUFFER_LENGTH;++i){
-        ((receiver->window->buffer)+i)->Status = 0;
-    }
+    receiver->window->NFE = 0;
+    receiver->window->RWS = 8;
 }
 
 //处理到达的信息
@@ -28,7 +25,6 @@ void handle_incoming_msgs(Receiver * receiver,
     int incoming_msgs_length = ll_get_length(receiver->input_framelist_head);
     while (incoming_msgs_length > 0)
     {
-        while (recBufferFull(receiver) == -1);
         //Pop a node off the front of the link list and update the count
         //从链表里取结点，这个结点不是帧，只是包含了消息
         LLnode * ll_inmsg_node = ll_pop_node(&receiver->input_framelist_head);
@@ -64,7 +60,7 @@ void handle_incoming_msgs(Receiver * receiver,
             continue;
         }
         //这里有bug，会内存异常
-        //如果是重复收到的包，检查缓冲区里有没有，已有的话再发一次确认报文  
+        //如果是已经收到的包，丢弃 
         // if(judgeRevBufferExit(inframe->seq,receiver)==1){
         //     fprintf(stderr, "This Frame has already been taken.");
         //     free(ll_inmsg_node);
@@ -74,36 +70,48 @@ void handle_incoming_msgs(Receiver * receiver,
         // }
         //正确接收到了包，放入缓冲区
         //recInfo* bufferFrame = searchRecBuffer(inframe->seq,receiver);
-        while( recBufferFull(receiver) == -1);
-        intoRecBuffer(receiver,inframe);
-        //print_frame(receiver->window->buffer->rframe);
-        //打印出来就算接收到了
-        printf("<RECV_%d>:[%s]\n", receiver->recv_id, inframe->data);
+        //while( recBufferFull(receiver) == -1);
 
-        //填充确认报文
-        Frame * outframe = (Frame *) malloc(sizeof(Frame));
-        memset(outframe->data,0,40*sizeof(char));
-        strcpy(outframe->data, inframe->data);
-        outframe->destinationId = inframe->sourceId;
-        outframe->sourceId = inframe->destinationId;
-        outframe->seq = inframe->seq;
-        outframe->ack = 1;
-        char* uCrcOutFrameChar = convert_frame_to_char(outframe);
-        uint16_t crc = crc16(uCrcOutFrameChar,MAX_FRAME_SIZE-2);
-        outframe->crc = crc;
+        //必须按序接收
+        if(receiver->window->NFE == inframe->seq){
+            //缓冲区满,释放缓冲区
+            if(receiver->window->RWS == 0) releaseRecBuffer(receiver);
+            intoRecBuffer(receiver,inframe);
+            receiver->window->RWS--;
+            receiver->window->NFE++;
+            //print_frame(receiver->window->buffer->rframe);
+            //打印出来就算接收到了
+            printf("<RECV_%d>:[%s]\n", receiver->recv_id, inframe->data);
 
-        char* CrcOutFrameChar = convert_frame_to_char(outframe);
-        //先注释，不然测试程序时无法exit结束任务
-        //确认报文添加到发送队列
-        ll_append_node(outgoing_frames_head_ptr,CrcOutFrameChar);
+            //填充确认报文
+            Frame * outframe = (Frame *) malloc(sizeof(Frame));
+            memset(outframe->data,0,40*sizeof(char));
+            strcpy(outframe->data, inframe->data);
+            outframe->destinationId = inframe->sourceId;
+            outframe->sourceId = inframe->destinationId;
+            outframe->seq = inframe->seq;
+            outframe->ack = 1;
+            char* uCrcOutFrameChar = convert_frame_to_char(outframe);
+            uint16_t crc = crc16(uCrcOutFrameChar,MAX_FRAME_SIZE-2);
+            outframe->crc = crc;
 
-        //Free raw_char_buf
-        free(raw_char_buf);
-        free(inframe);
-        free(outframe);
-        free(uCrcOutFrameChar);
-        free(ll_inmsg_node);
-
+            char* CrcOutFrameChar = convert_frame_to_char(outframe);
+            //先注释，不然测试程序时无法exit结束任务
+            //确认报文添加到发送队列
+            ll_append_node(outgoing_frames_head_ptr,CrcOutFrameChar);
+            //Free raw_char_buf
+            free(raw_char_buf);
+            free(inframe);
+            free(outframe);
+            free(uCrcOutFrameChar);
+            free(ll_inmsg_node);
+        }else{
+            //乱序的话不接收
+            fprintf(stderr, "<RECV_%d>:Wrong packet receive order.\n",(int)receiver->recv_id);
+            free(raw_char_buf);
+            free(inframe);
+            free(ll_inmsg_node);
+        }
     }
 }
 
