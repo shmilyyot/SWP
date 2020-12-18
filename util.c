@@ -230,16 +230,23 @@ int sendBufferFull(Sender* sender){
 }
 
 sendInfo* searchSendBuffer(uint8_t seq,Sender *sender){
-    int pos = -1;
     for(int i=0;i<MAX_BUFFER_LENGTH;++i){
         //print_frame(((sender->window->buffer)+i)->sframe);
         if(((sender->window->buffer)+i)->sframe->seq == seq){
             return (sender->window->buffer)+i;
         }
     }
-    return (sender->window->buffer)+pos;
+    return (sender->window->buffer);
 }
 
+int judgeFrameExit(uint8_t seq,Sender *sender){
+    for(int i=0;i<MAX_BUFFER_LENGTH;++i){
+        if(((sender->window->buffer)+i)->Status==2 && ((sender->window->buffer)+i)->sframe->seq == seq){
+            return 1;
+        }
+    }
+    return 0;
+}
 void ll_split_head(Sender* sender, Cmd * head_ptr,int payload_size){
     if(head_ptr == NULL) return;
     char* msg = head_ptr->message;

@@ -67,6 +67,7 @@ void handle_incoming_msgs(Receiver * receiver,
             intoRecBuffer(receiver,inframe);
             receiver->window->RWS--;
             receiver->window->NFE++;
+            fprintf(stderr, "receiver:receive packet %d\n", (int)inframe->seq);
             printf("<RECV_%d>:[%s]\n", receiver->recv_id, inframe->data);
 
             //填充确认报文
@@ -75,7 +76,7 @@ void handle_incoming_msgs(Receiver * receiver,
             strcpy(outframe->data, inframe->data);
             outframe->destinationId = inframe->sourceId;
             outframe->sourceId = inframe->destinationId;
-            outframe->seq = inframe->seq;
+            outframe->seq = receiver->window->NFE-1;
             outframe->ack = 1;
             char* uCrcOutFrameChar = convert_frame_to_char(outframe);
             uint16_t crc = crc16(uCrcOutFrameChar,MAX_FRAME_SIZE-2);
@@ -83,7 +84,7 @@ void handle_incoming_msgs(Receiver * receiver,
             char* CrcOutFrameChar = convert_frame_to_char(outframe);
             //先注释，不然测试程序时无法exit结束任务
             //确认报文添加到发送队列
-            fprintf(stderr, "send ack %d \n", (int)outframe->seq);
+            fprintf(stderr, "receiver:send ack %d \n", (int)outframe->seq);
             ll_append_node(outgoing_frames_head_ptr,CrcOutFrameChar);
             //Free raw_char_buf
             free(raw_char_buf);
@@ -97,24 +98,25 @@ void handle_incoming_msgs(Receiver * receiver,
             free(raw_char_buf);
             free(inframe);
             free(ll_inmsg_node);
-        }else{
-            //有可能不需要了
-
-
-            //小于NFE，代表收到了重复发送的帧，重新发送一模一样的ack
+        }
+        else{
+            //小于NFE，代表收到了重复发送的帧，只发送最后一个接收帧的报文
             fprintf(stderr, "<RECV_%d>:This packet had been received.Resend ack\n",(int)receiver->recv_id);
             Frame * outframe = (Frame *) malloc(sizeof(Frame));
             memset(outframe->data,0,40*sizeof(char));
             strcpy(outframe->data, inframe->data);
             outframe->destinationId = inframe->sourceId;
             outframe->sourceId = inframe->destinationId;
-            outframe->seq = inframe->seq;
+
+            //回复上一个接收的报文，超过255时要处理，别忘了
+            outframe->seq = receiver->window->NFE-1;
+
             outframe->ack = 1;
             char* uCrcOutFrameChar = convert_frame_to_char(outframe);
             uint16_t crc = crc16(uCrcOutFrameChar,MAX_FRAME_SIZE-2);
             outframe->crc = crc;
             char* CrcOutFrameChar = convert_frame_to_char(outframe);
-            fprintf(stderr, "send ack %d \n", (int)outframe->seq);
+            fprintf(stderr, "receiver:send ack %d \n", (int)outframe->seq);
             ll_append_node(outgoing_frames_head_ptr,CrcOutFrameChar);
             free(raw_char_buf);
             free(inframe);

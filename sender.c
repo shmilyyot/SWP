@@ -37,7 +37,7 @@ void handle_incoming_acks(Sender * sender,
 
         //如果确认包损坏，直接不管。因为有超时重传，接收方的确认报文损坏或者丢失，重传之后对面会再发一次确认包的
         if(is_corrupted(incoming_frame_Char,MAX_FRAME_SIZE)==1){
-            fprintf(stderr, "<SEND_%d> :Error in finding the frame is corrupted!",incoming_frame->destinationId);
+            fprintf(stderr, "<SEND_%d> :Error in finding the frame is corrupted! \n",incoming_frame->destinationId);
             free(incoming_acks);
             free(incoming_frame);
             free(incoming_frame_Char);
@@ -45,26 +45,33 @@ void handle_incoming_acks(Sender * sender,
         }
         //如果这个帧不是这个发送者的,直接不管
         if(incoming_frame->destinationId != sender->send_id){
-            fprintf(stderr, "<SEND_%d> :This Frame is not for this sender.",incoming_frame->destinationId);
+            fprintf(stderr, "<SEND_%d> :This Frame is not for this sender. \n",incoming_frame->destinationId);
             free(incoming_acks);
             free(incoming_frame);
             free(incoming_frame_Char);
             continue;
         }
 
-        //这个确认帧对应的帧成功发送，释放缓冲区空间，将这个格子标志为0，窗口开始滑动
+        //某个帧的确认帧顺利到达
         if(incoming_frame->ack == 1){
             //这个ack必须在确认窗口里(用来排除因为网络拥塞而超时到达的第一次ack)
-            //当LAR为0时有问题
-            fprintf(stderr, "received ack %d \n", (int)incoming_frame->seq);
+            //比当前确认帧小的帧的缓存全部释放
+            fprintf(stderr, "sender received ack %d \n", (int)incoming_frame->seq);
             if((incoming_frame->seq)>(sender->window->LAR)){
-                for (uint8_t i = sender->window->LAR+1; i <= incoming_frame->seq;i++){
-                    sendInfo* bufferFrame = searchSendBuffer(i,sender);
-                    bufferFrame->Status = 0;
-                    free(bufferFrame->sframe);
-                    free(bufferFrame->timeout);
-                }
+                //这里重复释放了，记得改！！！
+                int start = sender->window->LAR + 1;
                 sender->window->LAR = incoming_frame->seq;
+                for (uint8_t i = start; i <= incoming_frame->seq;i++){
+                    if(judgeFrameExit(i,sender) == 1){
+                        sendInfo* bufferFrame = searchSendBuffer(i,sender);
+                        fprintf(stderr, "sender:free buffer ack%d\n", (int)incoming_frame->seq);
+                        bufferFrame->Status = 0;
+                        free(bufferFrame->sframe);
+                        free(bufferFrame->timeout);
+                    }else{
+                        fprintf(stderr,"sender:This buffer %d have been free\n",(int)incoming_frame->seq);
+                    }
+                }
             }else{
                 fprintf(stderr, "<SEND_%d>:received an already free ack %d,drop it \n", incoming_frame->destinationId,incoming_frame->seq);
             }
@@ -184,7 +191,7 @@ void handle_timedout_frames(Sender * sender,
             Timeout *timeout = ((sender->window->buffer) + i)->timeout;
             //如果发送帧比当前时间小，肯定超时了，因为发送时已经加了0.1毫秒，如果没有超时，一定会比0.1毫秒小的。
             if(timeout->tv_sec < currtime->tv_sec){
-                fprintf(stderr, "Frame %d is timeout",(int)((sender->window->buffer) + i)->sframe->seq);
+                fprintf(stderr, "Frame %d is timeout\n",(int)((sender->window->buffer) + i)->sframe->seq);
                 char * outgoing_msg = convert_frame_to_char(((sender->window->buffer) + i)->sframe);
                 ((sender->window->buffer) + i)->timeout = currtime;
                 ll_append_node(outgoing_frames_head_ptr,(void *)outgoing_msg);

@@ -4,27 +4,31 @@ Available sender id(s):
    send_id=0
 Available receiver id(s):
    recv_id=0
-send ack 0 
-received ack 0 
-send ack 1 
-<SEND_0> :Error in finding the frame is corrupted!<RECV_0>:This packet had been received.Resend ack
-send ack 1 
-received ack 1 
-send ack 2 
-received ack 2 
-send ack 3 
-received ack 3 
-send ack 4 
-received ack 4 
-send ack 5 
-received ack 5 
-send ack 6 
-<SEND_0> :Error in finding the frame is corrupted!send ack 7 
+<RECV_0>:Error in finding the frame is corrupted!
+<RECV_0>:Error in finding the frame is corrupted!
+<RECV_0>:Error in finding the frame is corrupted!
+<RECV_0>:Error in finding the frame is corrupted!
+<RECV_0>:Error in finding the frame is corrupted!
+<RECV_0>:Wrong packet receive order.
+<RECV_0>:Error in finding the frame is corrupted!
+<RECV_0>:Error in finding the frame is corrupted!
+<RECV_0>:Wrong packet receive order.
+<RECV_0>:Error in finding the frame is corrupted!
+<RECV_0>:Error in finding the frame is corrupted!
+<RECV_0>:Wrong packet receive order.
+<RECV_0>:Wrong packet receive order.
+receiver:receive packet 0
+receiver:send ack 0 
+<RECV_0>:Error in finding the frame is corrupted!
+<RECV_0>:Wrong packet receive order.
+<SEND_65535> :Error in finding the frame is corrupted! 
 <RECV_0>:This packet had been received.Resend ack
-send ack 6 
-<SEND_65280> :Error in finding the frame is corrupted!<SEND_65280> :Error in finding the frame is corrupted!<RECV_0>:Error in finding the frame is corrupted!
-send ack 8 
+receiver:send ack 0 
+receiver:receive packet 1
+receiver:send ack 1 
 <RECV_0>:Error in finding the frame is corrupted!
-<RECV_0>:Error in finding the frame is corrupted!
-received ack 8 
+<SEND_0> :Error in finding the frame is corrupted! 
+sender received ack 1 
+sender:free buffer ack1
+sender:free buffer ack1
 free(): double free detected in tcache 2

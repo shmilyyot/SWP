@@ -46,6 +46,7 @@ void intoRecBuffer(Receiver* sender,Frame *frame);
 int sendBufferFull(Sender* sender);
 //找到根据序列号对应缓冲区的帧
 sendInfo* searchSendBuffer(uint8_t seq,Sender *sender);
+int judgeFrameExit(uint8_t seq,Sender *sender);
 //字符串过长要切分
 void ll_split_head(Sender* sender,Cmd * outgoing_cmd,int payload_size);
 //查找确认已接收的报文，方便释放缓冲区并且移动LAR

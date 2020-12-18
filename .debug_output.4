@@ -4,18 +4,20 @@ Available sender id(s):
    send_id=0
 Available receiver id(s):
    recv_id=0
-send ack 0 
-received ack 0 
-<RECV_0>:Wrong packet receive order.
-send ack 1 
-received ack 1 
+receiver:receive packet 0
+receiver:send ack 0 
+sender received ack 0 
+sender:free buffer ack0
 <RECV_0>:Error in finding the frame is corrupted!
-<RECV_0>:Wrong packet receive order.
-<RECV_0>:Wrong packet receive order.
-send ack 2 
-received ack 2 
-send ack 3 
-send ack 4 
-received ack 3 
-received ack 4 
-Frame 4 is timeout<RECV_0>:This packet had been received.Resend ack
+receiver:receive packet 1
+receiver:send ack 1 
+receiver:receive packet 2
+receiver:send ack 2 
+<RECV_0>:Error in finding the frame is corrupted!
+<RECV_0>:Error in finding the frame is corrupted!
+<RECV_0>:This packet had been received.Resend ack
+receiver:send ack 2 
+sender received ack 2 
+sender:free buffer ack2
+sender:free buffer ack2
+free(): double free detected in tcache 2
