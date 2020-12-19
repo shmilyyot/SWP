@@ -57,8 +57,7 @@ void handle_incoming_acks(Sender * sender,
             //这个ack必须在确认窗口里(用来排除因为网络拥塞而超时到达的第一次ack)
             //比当前确认帧小的帧的缓存全部释放
             fprintf(stderr, "sender received ack %d \n", (int)incoming_frame->seq);
-            if((incoming_frame->seq)>(sender->window->LAR)){
-                //这里重复释放了，记得改！！！
+            if(((incoming_frame->seq)>(sender->window->LAR) && (incoming_frame->seq <= sender->window->LFS)) || ((sender->window->LAR > sender->window->LFS)&&((incoming_frame->seq > sender->window->LAR)||(incoming_frame->seq <= sender->window->LFS)))){
                 int start = sender->window->LAR + 1;
                 sender->window->LAR = incoming_frame->seq;
                 for (uint8_t i = start; i <= incoming_frame->seq;i++){
@@ -73,7 +72,7 @@ void handle_incoming_acks(Sender * sender,
                     }
                 }
             }else{
-                fprintf(stderr, "<SEND_%d>:received an already free ack %d,drop it \n", incoming_frame->destinationId,incoming_frame->seq);
+                fprintf(stderr, "<SEND_%d>:worng ack %d,drop it \n", incoming_frame->destinationId,incoming_frame->seq);
             }
         }
         free(incoming_acks);
@@ -109,7 +108,6 @@ void handle_input_cmds(Sender * sender,
     {
         //Pop a node off and update the input_cmd_length
         LLnode * ll_input_cmd_node = ll_pop_node(&sender->input_cmdlist_head);
-        if((sender->messageSeq)>=MAX_MESSAGE_SEQ) sender->messageSeq = 0;
         input_cmd_length = ll_get_length(sender->input_cmdlist_head);
 
         //Cast to Cmd type and free up the memory for the node

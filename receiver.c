@@ -92,8 +92,8 @@ void handle_incoming_msgs(Receiver * receiver,
             free(outframe);
             free(uCrcOutFrameChar);
             free(ll_inmsg_node);
-        }else if(receiver->window->NFE < inframe->seq){
-            //乱序的话不接收
+        }else if((receiver->window->NFE < inframe->seq)){
+            //比当前NFE大的，乱序的话不接收
             fprintf(stderr, "<RECV_%d>:Wrong packet receive order.\n",(int)receiver->recv_id);
             free(raw_char_buf);
             free(inframe);
@@ -110,7 +110,6 @@ void handle_incoming_msgs(Receiver * receiver,
 
             //回复上一个接收的报文，超过255时要处理，别忘了
             outframe->seq = receiver->window->NFE-1;
-
             outframe->ack = 1;
             char* uCrcOutFrameChar = convert_frame_to_char(outframe);
             uint16_t crc = crc16(uCrcOutFrameChar,MAX_FRAME_SIZE-2);
