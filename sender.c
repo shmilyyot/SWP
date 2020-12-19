@@ -37,7 +37,7 @@ void handle_incoming_acks(Sender * sender,
 
         //如果确认包损坏，直接不管。因为有超时重传，接收方的确认报文损坏或者丢失，重传之后对面会再发一次确认包的
         if(is_corrupted(incoming_frame_Char,MAX_FRAME_SIZE)==1){
-            fprintf(stderr, "<SEND_%d> :Error in finding the frame is corrupted! \n",incoming_frame->destinationId);
+            fprintf(stderr, "<SEND_%d> :Error in finding the frame is corrupted! \n",(int)incoming_frame->destinationId);
             free(incoming_acks);
             free(incoming_frame);
             free(incoming_frame_Char);
@@ -45,7 +45,7 @@ void handle_incoming_acks(Sender * sender,
         }
         //如果这个帧不是这个发送者的,直接不管
         if(incoming_frame->destinationId != sender->send_id){
-            fprintf(stderr, "<SEND_%d> :This Frame is not for this sender. \n",incoming_frame->destinationId);
+            fprintf(stderr, "<SEND_%d> :This Frame is not for this sender. \n",(int)incoming_frame->destinationId);
             free(incoming_acks);
             free(incoming_frame);
             free(incoming_frame_Char);
@@ -64,12 +64,12 @@ void handle_incoming_acks(Sender * sender,
                 for (uint8_t i = start; i <= incoming_frame->seq;i++){
                     if(judgeFrameExit(i,sender) == 1){
                         sendInfo* bufferFrame = searchSendBuffer(i,sender);
-                        fprintf(stderr, "sender:free buffer ack%d\n", (int)incoming_frame->seq);
+                        fprintf(stderr, "sender:free buffer ack%d\n", i);
                         bufferFrame->Status = 0;
                         free(bufferFrame->sframe);
                         free(bufferFrame->timeout);
                     }else{
-                        fprintf(stderr,"sender:This buffer %d have been free\n",(int)incoming_frame->seq);
+                        fprintf(stderr,"sender:This buffer %d have already been free\n",(int)incoming_frame->seq);
                     }
                 }
             }else{
@@ -193,17 +193,22 @@ void handle_timedout_frames(Sender * sender,
             if(timeout->tv_sec < currtime->tv_sec){
                 fprintf(stderr, "Frame %d is timeout\n",(int)((sender->window->buffer) + i)->sframe->seq);
                 char * outgoing_msg = convert_frame_to_char(((sender->window->buffer) + i)->sframe);
-                ((sender->window->buffer) + i)->timeout = currtime;
+                Timeout *new_currtime =(Timeout*)malloc(sizeof(Timeout));
+                gettimeofday(new_currtime, NULL);
+                ((sender->window->buffer) + i)->timeout = new_currtime;
                 ll_append_node(outgoing_frames_head_ptr,(void *)outgoing_msg);
             }else if(timeout->tv_sec == currtime->tv_sec){
                 if(timeout->tv_usec < currtime->tv_usec){
                     char * outgoing_msg = convert_frame_to_char(((sender->window->buffer) + i)->sframe);
-                    ((sender->window->buffer) + i)->timeout = currtime;
+                    Timeout *new_currtime =(Timeout*)malloc(sizeof(Timeout));
+                    gettimeofday(new_currtime, NULL);
+                    ((sender->window->buffer) + i)->timeout = new_currtime;
                     ll_append_node(outgoing_frames_head_ptr,(void *)outgoing_msg);
                 }
             }
         }
     }
+    free(currtime);
 }
 
 
