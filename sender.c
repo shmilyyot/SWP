@@ -19,6 +19,7 @@ void init_sender(Sender * sender, int id)
 
 struct timeval * sender_get_next_expiring_timeval(Sender * sender)
 {
+    //遍历缓冲区的帧，找到一个最短的过期时间，用来休眠一定时间间隔，可以不写
     //TODO: You should fill in this function so that it returns the next timeout that should occur
     return NULL;
 }
@@ -76,7 +77,6 @@ void handle_incoming_acks(Sender * sender,
                 //在右边界
                 if(incoming_frame->seq > sender->window->LAR){
                     int start = sender->window->LAR + 1;
-                    //i+1变回0了，无限循环
                     for (int i = start; i <= (int)incoming_frame->seq;i++){
                         fprintf(stderr,"%d \n",i);
                         if(judgeFrameExit(i,sender) == 1){
@@ -187,9 +187,6 @@ void handle_input_cmds(Sender * sender,
         }
         int splitlist_length = ll_get_length(sender->splitlist);
         while(splitlist_length>0){
-            //如果缓冲区满了，消息不能发送，在队列里死等，直到发送缓冲区有空间
-            //只要缓冲区没满，不用担心窗口标识符可能越界，一定能发送，LFS肯定能自增
-            //发送消息时无需考虑LAR
             //This is probably ONLY one step you want
             LLnode *splitNode = ll_pop_node(&sender->splitlist);
             --splitlist_length;
@@ -210,7 +207,7 @@ void handle_input_cmds(Sender * sender,
             Timeout *timeout = (Timeout*)malloc(sizeof(Timeout));
             calculate_timeout(timeout);
             intoSendBuffer(sender,timeout,outgoing_frame);
-
+            //发送消息时无需考虑LAR
             //成功放进缓冲区，即将发送消息，窗口开始滑动
             ++(sender->window->LFS); //LFS最近发送的帧向右移动一格，LAR不用动
             //Convert the message to the outgoing_charbuf
