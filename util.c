@@ -231,7 +231,6 @@ int sendBufferFull(Sender* sender){
 
 sendInfo* searchSendBuffer(uint8_t seq,Sender *sender){
     for(int i=0;i<MAX_BUFFER_LENGTH;++i){
-        fprintf(stderr,"the finding free buffer is %d \n",(int)((sender->window->buffer)+i)->sframe->seq);
         if(((sender->window->buffer)+i)->Status==2 && ((sender->window->buffer)+i)->sframe->seq == seq){
             return (sender->window->buffer)+i;
         }

@@ -8,7 +8,7 @@ void init_sender(Sender * sender, int id)
     sender->input_framelist_head = NULL;
     //初始化发送缓冲区
     sender->window = (sWindow*)malloc(sizeof(sWindow));
-    sender->window->LAR = -1; //初始化LAR
+    sender->window->LAR = 255; //初始化LAR
     sender->window->LFS = 0; //初始化LFS
     for(int i=0;i<MAX_BUFFER_LENGTH;++i){
         ((sender->window->buffer)+i)->Status = 0; //刚开始缓冲区每一个窗口都是0，代表可以填充数据发送
@@ -57,13 +57,14 @@ void handle_incoming_acks(Sender * sender,
             //这个ack必须在确认窗口里(用来排除因为网络拥塞而超时到达的第一次ack)
             //比当前确认帧小的帧的缓存全部释放
             fprintf(stderr, "sender received ack %d \n", (int)incoming_frame->seq);
-            if(((incoming_frame->seq)>(sender->window->LAR) && (incoming_frame->seq <= sender->window->LFS)) || ((sender->window->LAR > sender->window->LFS)&&((incoming_frame->seq > sender->window->LAR)||(incoming_frame->seq <= sender->window->LFS)))){
+            //接收的ack在最近发送的LFS和最近接收的LAR之间
+            if((incoming_frame->seq)>(sender->window->LAR) && (incoming_frame->seq <= sender->window->LFS)){
                 int start = sender->window->LAR + 1;
                 sender->window->LAR = incoming_frame->seq;
-                for (uint8_t i = start; i <= incoming_frame->seq;i++){
+                for (int i = start; i <= (int)incoming_frame->seq;i++){
                     if(judgeFrameExit(i,sender) == 1){
                         sendInfo* bufferFrame = searchSendBuffer(i,sender);
-                        fprintf(stderr, "sender:free buffer ack%d\n", i);
+                        fprintf(stderr, "sender:free buffer ack %d\n", i);
                         bufferFrame->Status = 0;
                         free(bufferFrame->sframe);
                         free(bufferFrame->timeout);
@@ -71,8 +72,61 @@ void handle_incoming_acks(Sender * sender,
                         fprintf(stderr,"sender:This buffer %d have already been free\n",(int)incoming_frame->seq);
                     }
                 }
-            }else{
-                fprintf(stderr, "<SEND_%d>:worng ack %d,drop it \n", incoming_frame->destinationId,incoming_frame->seq);
+            }else if((sender->window->LAR > sender->window->LFS)){
+                //在右边界
+                if(incoming_frame->seq > sender->window->LAR){
+                    int start = sender->window->LAR + 1;
+                    //i+1变回0了，无限循环
+                    for (int i = start; i <= (int)incoming_frame->seq;i++){
+                        fprintf(stderr,"%d \n",i);
+                        if(judgeFrameExit(i,sender) == 1){
+                            sendInfo* bufferFrame = searchSendBuffer(i,sender);
+                            fprintf(stderr, "sender:free buffer ack %d\n", i);
+                            bufferFrame->Status = 0;
+                            free(bufferFrame->sframe);
+                            free(bufferFrame->timeout);
+                            sender->window->LAR = incoming_frame->seq;
+                        }else{
+                            fprintf(stderr,"sender:This buffer %d have already been free\n",(int)incoming_frame->seq);
+                        }
+                    }
+                    sender->window->LAR = incoming_frame->seq;
+                }
+                else if(incoming_frame->seq <= sender->window->LFS){
+                    if(sender->window->LAR<255){
+                        for (int i = sender->window->LAR + 1; i <= 255;i++){
+                        if(judgeFrameExit(i,sender) == 1){
+                            sendInfo* bufferFrame = searchSendBuffer(i,sender);
+                            fprintf(stderr, "sender:free buffer ack %d\n", i);
+                            bufferFrame->Status = 0;
+                            free(bufferFrame->sframe);
+                            free(bufferFrame->timeout);
+                            sender->window->LAR = incoming_frame->seq;
+                        }else{
+                            fprintf(stderr,"sender:This buffer %d have already been free\n",(int)incoming_frame->seq);
+                            }
+                        }
+                    }
+                    for (uint8_t i = 0; i <= incoming_frame->seq;i++){
+                        if(judgeFrameExit(i,sender) == 1){
+                            sendInfo* bufferFrame = searchSendBuffer(i,sender);
+                            fprintf(stderr, "sender:free buffer ack %d\n", i);
+                            bufferFrame->Status = 0;
+                            free(bufferFrame->sframe);
+                            free(bufferFrame->timeout);
+                            sender->window->LAR = incoming_frame->seq;
+                        }else{
+                            fprintf(stderr,"sender:This buffer %d have already been free\n",(int)incoming_frame->seq);
+                        }
+                    }
+                //既不是右边界也不是左边界
+                }else{
+                    fprintf(stderr, "<SEND_%d>:worng ack %d,drop it \n", incoming_frame->destinationId,incoming_frame->seq);
+                }
+            }
+            //乱序报文
+            else{
+                fprintf(stderr, "<SEND_%d>:worng ack %d,drop it\n", incoming_frame->destinationId,incoming_frame->seq);
             }
         }
         free(incoming_acks);

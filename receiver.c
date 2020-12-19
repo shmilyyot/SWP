@@ -92,14 +92,7 @@ void handle_incoming_msgs(Receiver * receiver,
             free(outframe);
             free(uCrcOutFrameChar);
             free(ll_inmsg_node);
-        }else if((receiver->window->NFE < inframe->seq)){
-            //比当前NFE大的，乱序的话不接收
-            fprintf(stderr, "<RECV_%d>:Wrong packet receive order.\n",(int)receiver->recv_id);
-            free(raw_char_buf);
-            free(inframe);
-            free(ll_inmsg_node);
-        }
-        else{
+        }else if((receiver->window->NFE > inframe->seq)||((receiver->window->NFE < inframe->seq) && (inframe->seq > receiver->window->NFE+receiver->window->RWS-1))){
             //小于NFE，代表收到了重复发送的帧，只发送最后一个接收帧的报文
             fprintf(stderr, "<RECV_%d>:This packet had been received.Resend ack\n",(int)receiver->recv_id);
             Frame * outframe = (Frame *) malloc(sizeof(Frame));
@@ -121,6 +114,12 @@ void handle_incoming_msgs(Receiver * receiver,
             free(inframe);
             free(outframe);
             free(uCrcOutFrameChar);
+            free(ll_inmsg_node);
+        }else{
+            //乱序的话不接收
+            fprintf(stderr, "<RECV_%d>:Wrong packet receive order.\n",(int)receiver->recv_id);
+            free(raw_char_buf);
+            free(inframe);
             free(ll_inmsg_node);
         }
     }
