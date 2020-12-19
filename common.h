@@ -110,7 +110,7 @@ struct Receiver_t
 struct Send_Frame_Info{
     Frame *sframe;
     Timeout* timeout;
-    uint8_t Status; //0代表空闲空间，1代表发送已确认，2代表发送未确认
+    uint8_t Status; //0代表空闲空间，2代表发送未确认
 };
 typedef struct Send_Frame_Info sendInfo;
 
