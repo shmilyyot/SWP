@@ -19,9 +19,27 @@ void init_sender(Sender * sender, int id)
 
 struct timeval * sender_get_next_expiring_timeval(Sender * sender)
 {
-    //遍历缓冲区的帧，找到一个最短的过期时间，用来休眠一定时间间隔，可以不写
+    //遍历缓冲区的帧，找到一个最短的过期时间，用来休眠一定时间间隔，可以不写,默认休眠一毫秒，写了运行效率更高
+    Timeout *currtime =(Timeout*)malloc(sizeof(Timeout));
+    currtime = NULL;
+    for(int i=0;i<MAX_BUFFER_LENGTH;++i){
+        if(((sender->window->buffer)+i)->Status == 2){
+            currtime = ((sender->window->buffer)+i)->timeout;
+            break;
+        }
+    }
+    for(int i=0;i<MAX_BUFFER_LENGTH;++i){
+        if(((sender->window->buffer)+i)->Status == 2){
+            if(((sender->window->buffer)+i)->timeout->tv_sec > currtime->tv_sec){
+                currtime = ((sender->window->buffer)+i)->timeout;
+            }else if((((sender->window->buffer)+i)->timeout->tv_sec == currtime->tv_sec) &&(((sender->window->buffer)+i)->timeout->tv_usec > currtime->tv_usec)){
+                currtime = ((sender->window->buffer)+i)->timeout;
+            }
+        }
+    }
     //TODO: You should fill in this function so that it returns the next timeout that should occur
-    return NULL;
+    return currtime;
+    //return NULL;
 }
 
 
