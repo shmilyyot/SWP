@@ -176,8 +176,45 @@ void handle_input_cmds(Sender * sender,
     
     //Recheck the command queue length to see if stdin_thread dumped a command on us
     input_cmd_length = ll_get_length(sender->input_cmdlist_head);
-    while (input_cmd_length > 0)
+    int length = ll_get_length(sender->splitlist);
+    while (input_cmd_length > 0 || (input_cmd_length == 0 && length>0))
     {
+        if(input_cmd_length == 0 && length>0){
+            int splitlist_length = ll_get_length(sender->splitlist);
+            while(splitlist_length>0){
+                if(sendBufferFull(sender) == -1) return;
+                //This is probably ONLY one step you want
+                LLnode *splitNode = ll_pop_node(&sender->splitlist);
+                splitlist_length--;
+                //填充发送帧的信息,添加了冗余码
+                Frame * outgoing_frame = (Frame *) malloc (sizeof(Frame));
+                strcpy(outgoing_frame->data, (char *)splitNode->value);
+                free(splitNode);
+                char ack = 0;
+                outgoing_frame->sourceId = sender->src_id;
+                outgoing_frame->destinationId = sender->dst_id;
+                outgoing_frame->seq = sender->messageSeq;
+                (sender->messageSeq)++;
+                fprintf(stderr,"sender send packet %d\n",(int)outgoing_frame->seq);
+                outgoing_frame->ack = ack;
+                char * outgoing_str = convert_frame_to_char(outgoing_frame);
+                uint16_t crc = crc16(outgoing_str,MAX_FRAME_SIZE-2);
+                outgoing_frame->crc = crc;
+                //将时间和帧一起放入缓冲区
+                Timeout *timeout = (Timeout*)malloc(sizeof(Timeout));
+                calculate_timeout(timeout);
+                intoSendBuffer(sender,timeout,outgoing_frame);
+                //发送消息时无需考虑LAR
+                //成功放进缓冲区，即将发送消息，窗口开始滑动
+                (sender->window->LFS)++; //LFS最近发送的帧向右移动一格，LAR不用动
+                //Convert the message to the outgoing_charbuf
+                char * outgoing_charbuf = convert_frame_to_char(outgoing_frame);
+                ll_append_node(outgoing_frames_head_ptr,
+                            outgoing_charbuf);
+                //free(outgoing_frame); 先别释放，在缓冲区里
+            }
+            return;
+        }
         //Pop a node off and update the input_cmd_length
         LLnode * ll_input_cmd_node = ll_pop_node(&sender->input_cmdlist_head);
         input_cmd_length = ll_get_length(sender->input_cmdlist_head);
@@ -205,9 +242,14 @@ void handle_input_cmds(Sender * sender,
         }
         int splitlist_length = ll_get_length(sender->splitlist);
         while(splitlist_length>0){
+            if(sendBufferFull(sender) == -1){
+                sender->src_id=outgoing_cmd->src_id;
+                sender->dst_id = outgoing_cmd->dst_id;
+                return;
+            };
             //This is probably ONLY one step you want
             LLnode *splitNode = ll_pop_node(&sender->splitlist);
-            --splitlist_length;
+            splitlist_length--;
             //填充发送帧的信息,添加了冗余码
             Frame * outgoing_frame = (Frame *) malloc (sizeof(Frame));
             strcpy(outgoing_frame->data, (char *)splitNode->value);
@@ -215,25 +257,25 @@ void handle_input_cmds(Sender * sender,
             char ack = 0;
             outgoing_frame->sourceId = outgoing_cmd->src_id;
             outgoing_frame->destinationId = outgoing_cmd->dst_id;
-            outgoing_frame->seq = (sender->messageSeq)++;
+            outgoing_frame->seq = sender->messageSeq;
+            (sender->messageSeq)++;
+            fprintf(stderr,"sender send packet %d\n",(int)outgoing_frame->seq);
             outgoing_frame->ack = ack;
             char * outgoing_str = convert_frame_to_char(outgoing_frame);
             uint16_t crc = crc16(outgoing_str,MAX_FRAME_SIZE-2);
             outgoing_frame->crc = crc;
-
             //将时间和帧一起放入缓冲区
             Timeout *timeout = (Timeout*)malloc(sizeof(Timeout));
             calculate_timeout(timeout);
             intoSendBuffer(sender,timeout,outgoing_frame);
             //发送消息时无需考虑LAR
             //成功放进缓冲区，即将发送消息，窗口开始滑动
-            ++(sender->window->LFS); //LFS最近发送的帧向右移动一格，LAR不用动
+            (sender->window->LFS)++; //LFS最近发送的帧向右移动一格，LAR不用动
             //Convert the message to the outgoing_charbuf
             char * outgoing_charbuf = convert_frame_to_char(outgoing_frame);
             ll_append_node(outgoing_frames_head_ptr,
                            outgoing_charbuf);
             //free(outgoing_frame); 先别释放，在缓冲区里
-
         }
         //At this point, we don't need the outgoing_cmd
         free(outgoing_cmd->message);
@@ -379,7 +421,6 @@ void * run_sender(void * input_sender)
                           &outgoing_frames_head);
 
         pthread_mutex_unlock(&sender->buffer_mutex);
-
 
         //Implement this
         handle_timedout_frames(sender,

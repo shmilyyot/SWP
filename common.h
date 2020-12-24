@@ -145,6 +145,8 @@ struct Sender_t
     LLnode* splitlist;
     //消息序号
     int messageSeq;
+    uint16_t src_id;
+    uint16_t dst_id;
 };
 
 enum SendFrame_DstType 

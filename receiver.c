@@ -59,14 +59,13 @@ void handle_incoming_msgs(Receiver * receiver,
             free(inframe);
             continue;
         }
-
         //必须按序接收
         if(receiver->window->NFE == inframe->seq){
             //缓冲区满,释放缓冲区
             if(receiver->window->RWS == 0) releaseRecBuffer(receiver);
             intoRecBuffer(receiver,inframe);
-            receiver->window->RWS--;
-            receiver->window->NFE++;
+            receiver->window->RWS-=1;
+            receiver->window->NFE+=1;
             fprintf(stderr, "receiver:receive packet %d\n", (int)inframe->seq);
             printf("<RECV_%d>:[%s]\n", receiver->recv_id, inframe->data);
 
