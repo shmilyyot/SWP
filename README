@@ -4,7 +4,7 @@ All input.* and communicate.* files will be overwritten when we grade Lab 1.
 Please refer to the website under the projects section for further instructions.
 http://cseweb.ucsd.edu/classes/fa16/cse123-a/project.html
 
-####极端情况下，发送时间间隔低于0.01毫秒会出问题
-####问题在sender释放缓冲区里，最后一个包在缓冲区满的时候，没法发送
-####普通情况全pass没有问题
-
+####默认样例 0.1毫秒发送间隔 10个包 4cases全pass
+####极端样例 0.0001毫秒发送间隔 3000个包 4cases全pass
+####理论上代码运行效率较高，高负载情况下依然能正常运行，经压力测试无bug。
+####本项目只实现了1对1发送，由于框架设计的滑动窗口缓冲区与发送接收者非耦合，所以想要实现多对多通信只需对本代码进行简单修改即可
