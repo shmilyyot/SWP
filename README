@@ -4,7 +4,7 @@ All input.* and communicate.* files will be overwritten when we grade Lab 1.
 Please refer to the website under the projects section for further instructions.
 http://cseweb.ucsd.edu/classes/fa16/cse123-a/project.html
 
-####经过压力测试，发送时间间隔0.01毫秒，3000个数据包情况下依然能pass
-####极端情况下，发送时间间隔低于0.01毫秒，如0.0001毫秒，case3可能会出问题，而case4依然能pass 不确定是代码问题
+####极端情况下，发送时间间隔低于0.01毫秒会出问题
+####问题在sender释放缓冲区里，最后一个包在缓冲区满的时候，没法发送
 ####普通情况全pass没有问题
-####除多对多情况，所有要点已实现。在此代码基础上修改成多于多通信不难实现，窗口缓冲区和sender、receiver没有耦合，修改几处地方即可
+
